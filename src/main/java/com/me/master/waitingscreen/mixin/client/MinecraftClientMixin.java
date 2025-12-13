@@ -1,0 +1,56 @@
+package com.me.master.waitingscreen.mixin.client;
+
+import com.me.master.waitingscreen.client.WaitingscreenClient;
+import com.me.master.waitingscreen.client.screen.WaitingScreen;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screen.GameMenuScreen;
+import net.minecraft.client.gui.screen.StatsScreen;
+import net.minecraft.client.gui.screen.advancement.AdvancementsScreen;
+import net.minecraft.client.gui.screen.multiplayer.SocialInteractionsScreen;
+import net.minecraft.client.gui.screen.option.*;
+import net.minecraft.client.gui.screen.pack.PackScreen;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+@Mixin(MinecraftClient.class)
+public abstract class MinecraftClientMixin {
+
+    @Shadow
+    public Screen currentScreen;
+
+    @Shadow
+    public abstract void setScreen(Screen screen);
+
+    @Inject(method = "setScreen", at = @At("HEAD"), cancellable = true)
+    private void forceWaitingScreen(Screen screen, CallbackInfo ci) {
+        if (!WaitingscreenClient.shouldBlockInput()) return;
+
+        if (screen instanceof WaitingScreen) {
+            return;
+        }
+
+        if (WaitingscreenClient.isAllowEscMenu()) {
+            if (screen instanceof GameMenuScreen ||
+                    screen instanceof ControlsOptionsScreen ||
+                    screen instanceof VideoOptionsScreen ||
+                    screen instanceof SoundOptionsScreen ||
+                    screen instanceof LanguageOptionsScreen ||
+                    screen instanceof AccessibilityOptionsScreen ||
+                    screen instanceof PackScreen ||
+                    screen instanceof SocialInteractionsScreen ||
+                    screen instanceof AdvancementsScreen ||
+                    screen instanceof StatsScreen) {
+                return;
+            }
+        }
+
+        ci.cancel();
+        if (!(currentScreen instanceof WaitingScreen)) {
+            setScreen(new WaitingScreen());
+        }
+    }
+}

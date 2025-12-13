@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "waitingscreen",
+  "version": "${version}",
+  "name": "waitingscreen",
+  "description": "",
+  "authors": [],
+  "contact": {},
+  "license": "All-Rights-Reserved",
+  "icon": "assets/waitingscreen/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "client": [
+      "com.me.master.waitingscreen.client.WaitingscreenClient"
+    ],
+    "main": [
+      "com.me.master.waitingscreen.Waitingscreen"
+    ]
+  },
+  "mixins": [
+    "waitingscreen.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric": "*",
+    "minecraft": "${minecraft_version}"
+  }
+}
