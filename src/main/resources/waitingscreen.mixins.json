@@ -1,0 +1,27 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.me.master.waitingscreen.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "PlayerEntityMixin",
+    "ServerPlayerEntityMixin",
+    "ServerPlayNetworkHandlerMixin",
+    "ChatMessageMixin",
+    "LivingEntityMixin",
+    "HungerManagerMixin",
+    "ServerPlayerInteractionManagerMixin",
+    "PlayerInteractItemMixin",
+    "PlayerInteractEntityMixin",
+    "UpdateSelectedSlotMixin",
+    "PlayerActionMixin",
+    "NetworkSafetyMixin",
+    "PacketValidationMixin",
+    "ExceptionHandlerMixin"
+  ],
+  "client": ["client.KeyboardMixin",
+    "client.MinecraftClientMixin"],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
