@@ -4,7 +4,9 @@ import com.me.master.waitingscreen.client.WaitingscreenClient;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.screen.GameMenuScreen;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
@@ -65,13 +67,14 @@ public class WaitingScreen extends Screen {
     @Override
     public void close() {
         if (WaitingscreenClient.isAllowEscMenu()) {
-            super.close();
+            MinecraftClient.getInstance().setScreen(new GameMenuScreen(true));
         }
     }
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (!WaitingscreenClient.isAllowEscMenu() && keyCode == 256) {
+        if (keyCode == 256 && WaitingscreenClient.isAllowEscMenu()) {
+            MinecraftClient.getInstance().setScreen(new GameMenuScreen(true));
             return true;
         }
         return super.keyPressed(keyCode, scanCode, modifiers);

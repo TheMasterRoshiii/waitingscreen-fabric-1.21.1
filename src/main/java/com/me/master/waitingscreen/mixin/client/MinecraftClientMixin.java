@@ -1,5 +1,10 @@
 package com.me.master.waitingscreen.mixin.client;
 
+import net.minecraft.client.gui.screen.option.MouseOptionsScreen;
+import net.minecraft.client.gui.screen.option.ChatOptionsScreen;
+import net.minecraft.client.gui.screen.option.SkinOptionsScreen;
+import net.minecraft.client.gui.screen.option.TelemetryInfoScreen;
+import net.minecraft.client.gui.screen.option.OnlineOptionsScreen;
 import com.me.master.waitingscreen.client.WaitingscreenClient;
 import com.me.master.waitingscreen.client.screen.WaitingScreen;
 import net.minecraft.client.MinecraftClient;
@@ -34,23 +39,42 @@ public abstract class MinecraftClientMixin {
         }
 
         if (WaitingscreenClient.isAllowEscMenu()) {
-            if (screen instanceof GameMenuScreen ||
-                    screen instanceof ControlsOptionsScreen ||
-                    screen instanceof VideoOptionsScreen ||
-                    screen instanceof SoundOptionsScreen ||
-                    screen instanceof LanguageOptionsScreen ||
-                    screen instanceof AccessibilityOptionsScreen ||
-                    screen instanceof PackScreen ||
-                    screen instanceof SocialInteractionsScreen ||
-                    screen instanceof AdvancementsScreen ||
-                    screen instanceof StatsScreen) {
+            if (isAllowedScreen(screen)) {
+                return;
+            }
+
+            if (screen == null && currentScreen != null && isAllowedScreen(currentScreen)) {
                 return;
             }
         }
 
         ci.cancel();
-        if (!(currentScreen instanceof WaitingScreen)) {
+        if (!(currentScreen instanceof WaitingScreen) && !isAllowedScreen(currentScreen)) {
             setScreen(new WaitingScreen());
         }
+    }
+
+    private boolean isAllowedScreen(Screen screen) {
+        if (screen == null) return false;
+
+        String screenName = screen.getClass().getName();
+
+        return screen instanceof GameMenuScreen ||
+                screen instanceof ControlsOptionsScreen ||
+                screen instanceof VideoOptionsScreen ||
+                screen instanceof SoundOptionsScreen ||
+                screen instanceof LanguageOptionsScreen ||
+                screen instanceof AccessibilityOptionsScreen ||
+                screen instanceof MouseOptionsScreen ||
+                screen instanceof ChatOptionsScreen ||
+                screen instanceof SkinOptionsScreen ||
+                screen instanceof TelemetryInfoScreen ||
+                screen instanceof OnlineOptionsScreen ||
+                screen instanceof PackScreen ||
+                screen instanceof SocialInteractionsScreen ||
+                screen instanceof AdvancementsScreen ||
+                screen instanceof StatsScreen ||
+                screenName.contains("OptionsScreen") ||
+                screenName.contains("OptionsSubScreen");
     }
 }
