@@ -1,5 +1,10 @@
 package com.me.master.waitingscreen.client;
 
+import net.minecraft.client.gui.screen.option.MouseOptionsScreen;
+import net.minecraft.client.gui.screen.option.ChatOptionsScreen;
+import net.minecraft.client.gui.screen.option.SkinOptionsScreen;
+import net.minecraft.client.gui.screen.option.TelemetryInfoScreen;
+import net.minecraft.client.gui.screen.option.OnlineOptionsScreen;
 import com.me.master.waitingscreen.Waitingscreen;
 import com.me.master.waitingscreen.client.screen.WaitingScreen;
 import com.me.master.waitingscreen.network.payload.*;
@@ -111,20 +116,32 @@ public class WaitingscreenClient implements ClientModInitializer {
         }
     }
 
+
     private boolean isAllowedScreen(Screen screen) {
         if (screen == null) return false;
+
+        String screenName = screen.getClass().getName();
+
         return screen instanceof GameMenuScreen ||
-                screen instanceof OptionsScreen ||
+                screen instanceof ControlsOptionsScreen ||
                 screen instanceof VideoOptionsScreen ||
                 screen instanceof SoundOptionsScreen ||
                 screen instanceof LanguageOptionsScreen ||
                 screen instanceof AccessibilityOptionsScreen ||
-                screen instanceof ControlsOptionsScreen ||
+                screen instanceof MouseOptionsScreen ||
+                screen instanceof ChatOptionsScreen ||
+                screen instanceof SkinOptionsScreen ||
+                screen instanceof TelemetryInfoScreen ||
+                screen instanceof OnlineOptionsScreen ||
                 screen instanceof PackScreen ||
                 screen instanceof SocialInteractionsScreen ||
                 screen instanceof AdvancementsScreen ||
-                screen instanceof StatsScreen;
+                screen instanceof StatsScreen ||
+                screenName.contains("OptionsScreen") ||
+                screenName.contains("OptionsSubScreen");
     }
+
+
 
     @Environment(EnvType.CLIENT)
     private void receiveImageData(String screenName, byte[] imageData) {
