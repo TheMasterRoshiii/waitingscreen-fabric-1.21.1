@@ -1,0 +1,19 @@
+# Waiting Screen Mod
+
+Server-side waiting room system for Minecraft Fabric 1.21.1
+
+## Installation
+
+1. Download from Releases
+2. Place in `mods/` folder
+3. Add images to `config/waitingscreens/`
+
+## Commands
+
+- `/waitingscreen start <players>` - Start waiting
+- `/waitingscreen stop` - Stop waiting
+- `/waitingscreen screen <name>` - Change image
+
+## License
+
+MIT
