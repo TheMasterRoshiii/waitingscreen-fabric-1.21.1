@@ -7,6 +7,8 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 
+import java.util.List;
+
 @UtilityClass
 public class NetworkHandler {
 
@@ -15,6 +17,8 @@ public class NetworkHandler {
         PayloadTypeRegistry.playS2C().register(ImageDataPayload.ID, ImageDataPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(ScreenChangePayload.ID, ScreenChangePayload.CODEC);
         PayloadTypeRegistry.playS2C().register(VideoScreenPayload.ID, VideoScreenPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(MissingNamesPayload.ID, MissingNamesPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(UiConfigPayload.ID, UiConfigPayload.CODEC);
     }
 
     public static void sendWaitingState(ServerPlayerEntity player, boolean isWaiting, int current, int required, String screen, boolean allowEsc) {
@@ -44,6 +48,26 @@ public class NetworkHandler {
     public static void broadcastScreenChange(MinecraftServer server, String screenName) {
         for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
             sendScreenChange(player, screenName);
+        }
+    }
+
+    public static void sendMissingNames(ServerPlayerEntity player, List<String> names, int more) {
+        ServerPlayNetworking.send(player, new MissingNamesPayload(names, more));
+    }
+
+    public static void broadcastMissingNames(MinecraftServer server, List<String> names, int more) {
+        for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+            sendMissingNames(player, names, more);
+        }
+    }
+
+    public static void sendUiConfig(ServerPlayerEntity player, String waitingText, int waitingTextColor, float waitingTextScale) {
+        ServerPlayNetworking.send(player, new UiConfigPayload(waitingText, waitingTextColor, waitingTextScale));
+    }
+
+    public static void broadcastUiConfig(MinecraftServer server, String waitingText, int waitingTextColor, float waitingTextScale) {
+        for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+            sendUiConfig(player, waitingText, waitingTextColor, waitingTextScale);
         }
     }
 }

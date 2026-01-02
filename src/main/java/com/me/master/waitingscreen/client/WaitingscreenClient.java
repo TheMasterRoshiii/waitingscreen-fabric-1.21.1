@@ -25,6 +25,7 @@ import net.minecraft.util.Identifier;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -46,6 +47,18 @@ public class WaitingscreenClient implements ClientModInitializer {
     @Getter
     private static boolean allowEscMenu = true;
 
+    @Getter
+    private static String waitingText = "Esperando jugadores...";
+
+    @Getter
+    private static int waitingTextColor = 0xFFFFFFFF;
+
+    @Getter
+    private static float waitingTextScale = 1.0f;
+
+    private static volatile List<String> missingNames = List.of();
+    private static volatile int missingMore = 0;
+
     private static boolean wasInWaiting = false;
     private static final Map<String, Identifier> loadedTextures = new ConcurrentHashMap<>();
 
@@ -54,6 +67,14 @@ public class WaitingscreenClient implements ClientModInitializer {
         Waitingscreen.LOGGER.info("Initializing client");
         registerClientPacketHandlers();
         registerClientEvents();
+    }
+
+    public static List<String> getMissingNames() {
+        return missingNames;
+    }
+
+    public static int getMissingMore() {
+        return missingMore;
     }
 
     private void registerClientPacketHandlers() {
@@ -77,6 +98,21 @@ public class WaitingscreenClient implements ClientModInitializer {
 
         ClientPlayNetworking.registerGlobalReceiver(VideoScreenPayload.ID, (payload, context) -> {
             context.client().execute(() -> Waitingscreen.LOGGER.warn("Video not implemented: {}", payload.videoUrl()));
+        });
+
+        ClientPlayNetworking.registerGlobalReceiver(MissingNamesPayload.ID, (payload, context) -> {
+            context.client().execute(() -> {
+                missingNames = List.copyOf(payload.names());
+                missingMore = payload.more();
+            });
+        });
+
+        ClientPlayNetworking.registerGlobalReceiver(UiConfigPayload.ID, (payload, context) -> {
+            context.client().execute(() -> {
+                waitingText = payload.waitingText();
+                waitingTextColor = payload.waitingTextColor();
+                waitingTextScale = payload.waitingTextScale();
+            });
         });
     }
 
@@ -116,7 +152,6 @@ public class WaitingscreenClient implements ClientModInitializer {
         }
     }
 
-
     private boolean isAllowedScreen(Screen screen) {
         if (screen == null) return false;
 
@@ -140,8 +175,6 @@ public class WaitingscreenClient implements ClientModInitializer {
                 screenName.contains("OptionsScreen") ||
                 screenName.contains("OptionsSubScreen");
     }
-
-
 
     @Environment(EnvType.CLIENT)
     private void receiveImageData(String screenName, byte[] imageData) {
