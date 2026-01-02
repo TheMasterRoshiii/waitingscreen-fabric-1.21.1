@@ -11,6 +11,8 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
+import java.util.List;
+
 @Environment(EnvType.CLIENT)
 public class WaitingScreen extends Screen {
 
@@ -26,18 +28,48 @@ public class WaitingScreen extends Screen {
         context.getMatrices().scale(3, 3, 1);
         context.drawCenteredTextWithShadow(textRenderer,
                 Text.literal(WaitingscreenClient.getCurrentPlayers() + "/" + WaitingscreenClient.getRequiredPlayers()),
-                width / 2 / 3, height / 2 / 3 + 20, 0xFF00AAFF);
+                (int) (width / 2f / 3f), (int) (height / 2f / 3f + 20), 0xFF00AAFF);
         context.getMatrices().pop();
 
+        float s = WaitingscreenClient.getWaitingTextScale();
+        if (s <= 0) s = 1.0f;
+
+        context.getMatrices().push();
+        context.getMatrices().scale(s, s, 1);
         context.drawCenteredTextWithShadow(textRenderer,
-                Text.literal("Esperando jugadores..."),
-                width / 2, height / 2 + 100, 0xFFFFFFFF);
+                Text.literal(WaitingscreenClient.getWaitingText()),
+                (int) (width / 2f / s), (int) ((height / 2f + 100) / s), WaitingscreenClient.getWaitingTextColor());
+        context.getMatrices().pop();
+
+        String missingLine = buildMissingLine();
+        if (!missingLine.isEmpty()) {
+            context.drawCenteredTextWithShadow(textRenderer,
+                    Text.literal(missingLine),
+                    width / 2, height / 2 + 120, 0xFFFFFFFF);
+        }
 
         if (WaitingscreenClient.isAllowEscMenu()) {
             context.drawCenteredTextWithShadow(textRenderer,
                     Text.literal("Presiona ESC para configuraciones"),
                     width / 2, height - 30, 0xFFAAAAAA);
         }
+    }
+
+    private String buildMissingLine() {
+        List<String> names = WaitingscreenClient.getMissingNames();
+        int more = WaitingscreenClient.getMissingMore();
+
+        if ((names == null || names.isEmpty()) && more <= 0) return "";
+
+        StringBuilder sb = new StringBuilder("Faltan: ");
+        if (names != null && !names.isEmpty()) {
+            for (int i = 0; i < names.size(); i++) {
+                if (i > 0) sb.append(", ");
+                sb.append(names.get(i));
+            }
+        }
+        if (more > 0) sb.append(" +").append(more);
+        return sb.toString();
     }
 
     private void renderImage(DrawContext context) {

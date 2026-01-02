@@ -1,5 +1,7 @@
 package com.me.master.waitingscreen;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
 import com.me.master.waitingscreen.command.WaitingScreenCommands;
 import com.me.master.waitingscreen.network.NetworkHandler;
 import lombok.Getter;
@@ -17,10 +19,9 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class Waitingscreen implements ModInitializer {
@@ -57,11 +58,35 @@ public class Waitingscreen implements ModInitializer {
     @Getter
     private boolean freezeHunger = true;
 
+    @Getter
+    private boolean whitelistMode = true;
+
+    @Getter
+    private int showNamesWhenMissingAtMost = 5;
+
+    @Getter
+    private int maxNamesToShow = 3;
+
+    @Getter
+    private String waitingText = "Esperando jugadores...";
+
+    @Getter
+    private int waitingTextColor = 0xFFFFFFFF;
+
+    @Getter
+    private float waitingTextScale = 1.0f;
+
     private final Set<UUID> exemptPlayers = ConcurrentHashMap.newKeySet();
     private final Map<String, byte[]> serverImageCache = new ConcurrentHashMap<>();
     private MinecraftServer currentServer = null;
     private int tickCounter = 0;
     private static final int UPDATE_INTERVAL = 20;
+
+    private volatile Set<String> cachedWhitelistNames = Set.of();
+    private volatile long whitelistLastModified = -1L;
+
+    private volatile List<String> lastShownMissing = List.of();
+    private volatile int lastMissingMore = 0;
 
     @Override
     public void onInitialize() {
@@ -95,6 +120,8 @@ public class Waitingscreen implements ModInitializer {
         this.waitingActive = false;
         this.currentPlayers = 0;
         this.serverImageCache.clear();
+        this.lastShownMissing = List.of();
+        this.lastMissingMore = 0;
         LOGGER.info("Server stopped");
     }
 
@@ -102,6 +129,8 @@ public class Waitingscreen implements ModInitializer {
         sendAllImagesToPlayer(player);
         if (waitingActive) {
             sendWaitingStateToPlayer(player);
+            NetworkHandler.sendMissingNames(player, lastShownMissing, lastMissingMore);
+            NetworkHandler.sendUiConfig(player, waitingText, waitingTextColor, waitingTextScale);
             updatePlayerCount();
         }
     }
@@ -190,17 +219,26 @@ public class Waitingscreen implements ModInitializer {
     }
 
     public void startWaiting(int required) {
-        requiredPlayers = required;
+        if (whitelistMode) {
+            refreshWhitelistCache();
+            requiredPlayers = cachedWhitelistNames.size();
+        } else {
+            requiredPlayers = required;
+        }
         waitingActive = true;
         currentPlayers = 0;
         updatePlayerCount();
         broadcastWaitingState();
+        broadcastUiConfig();
     }
 
     public void stopWaiting() {
         waitingActive = false;
         currentPlayers = 0;
+        lastShownMissing = List.of();
+        lastMissingMore = 0;
         broadcastWaitingState();
+        if (currentServer != null) NetworkHandler.broadcastMissingNames(currentServer, List.of(), 0);
     }
 
     public boolean changeScreen(String name) {
@@ -252,6 +290,36 @@ public class Waitingscreen implements ModInitializer {
         this.freezeHunger = freeze;
     }
 
+    public void setWhitelistMode(boolean whitelistMode) {
+        this.whitelistMode = whitelistMode;
+        if (waitingActive) updatePlayerCount();
+    }
+
+    public void setShowNamesWhenMissingAtMost(int v) {
+        this.showNamesWhenMissingAtMost = Math.max(0, v);
+        if (waitingActive) updatePlayerCount();
+    }
+
+    public void setMaxNamesToShow(int v) {
+        this.maxNamesToShow = Math.max(0, v);
+        if (waitingActive) updatePlayerCount();
+    }
+
+    public void setWaitingText(String text) {
+        this.waitingText = text;
+        broadcastUiConfig();
+    }
+
+    public void setWaitingTextColor(int color) {
+        this.waitingTextColor = color;
+        broadcastUiConfig();
+    }
+
+    public void setWaitingTextScale(float scale) {
+        this.waitingTextScale = scale;
+        broadcastUiConfig();
+    }
+
     public void addExemptPlayer(UUID id) {
         exemptPlayers.add(id);
         if (waitingActive) updatePlayerCount();
@@ -275,19 +343,111 @@ public class Waitingscreen implements ModInitializer {
         return Set.copyOf(exemptPlayers);
     }
 
+    private void refreshWhitelistCache() {
+        File f = new File("whitelist.json");
+        if (!f.exists()) {
+            cachedWhitelistNames = Set.of();
+            whitelistLastModified = -1L;
+            return;
+        }
+
+        long lm = f.lastModified();
+        if (lm == whitelistLastModified) return;
+
+        Set<String> out = new HashSet<>();
+        try (FileReader r = new FileReader(f)) {
+            JsonElement el = JsonParser.parseReader(r);
+            if (el.isJsonArray()) {
+                for (JsonElement e : el.getAsJsonArray()) {
+                    if (!e.isJsonObject()) continue;
+                    if (e.getAsJsonObject().has("name")) {
+                        String n = e.getAsJsonObject().get("name").getAsString();
+                        if (n != null && !n.isBlank()) out.add(n);
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+
+        cachedWhitelistNames = Set.copyOf(out);
+        whitelistLastModified = lm;
+    }
+
     private void updatePlayerCount() {
         if (!waitingActive || currentServer == null) return;
+
+        if (whitelistMode) {
+            refreshWhitelistCache();
+            Set<String> whitelist = cachedWhitelistNames;
+            int expected = whitelist.size();
+            if (expected != requiredPlayers) requiredPlayers = expected;
+
+            int count = 0;
+            Set<String> onlineWhitelisted = new HashSet<>();
+
+            for (ServerPlayerEntity p : currentServer.getPlayerManager().getPlayerList()) {
+                if (p.hasPermissionLevel(2)) continue;
+                if (isPlayerExempt(p.getUuid())) continue;
+
+                String name = p.getGameProfile().getName();
+                if (whitelist.contains(name)) {
+                    onlineWhitelisted.add(name);
+                    count++;
+                }
+            }
+
+            List<String> missing = new ArrayList<>();
+            for (String n : whitelist) if (!onlineWhitelisted.contains(n)) missing.add(n);
+            missing.sort(String.CASE_INSENSITIVE_ORDER);
+
+            List<String> shown;
+            int more;
+
+            if (!missing.isEmpty() && missing.size() <= showNamesWhenMissingAtMost && maxNamesToShow > 0) {
+                int s = Math.min(maxNamesToShow, missing.size());
+                shown = List.copyOf(missing.subList(0, s));
+                more = missing.size() - s;
+            } else {
+                shown = List.of();
+                more = 0;
+            }
+
+            if (!shown.equals(lastShownMissing) || more != lastMissingMore) {
+                lastShownMissing = shown;
+                lastMissingMore = more;
+                NetworkHandler.broadcastMissingNames(currentServer, shown, more);
+            }
+
+            if (count != currentPlayers) {
+                currentPlayers = count;
+                broadcastWaitingState();
+            }
+
+            if (requiredPlayers > 0 && currentPlayers >= requiredPlayers) {
+                stopWaiting();
+            }
+
+            return;
+        }
+
         int count = 0;
         for (ServerPlayerEntity p : currentServer.getPlayerManager().getPlayerList()) {
             if (!p.hasPermissionLevel(2) && !isPlayerExempt(p.getUuid())) count++;
         }
+
         if (count != currentPlayers) {
             currentPlayers = count;
             broadcastWaitingState();
         }
+
         if (requiredPlayers > 0 && currentPlayers >= requiredPlayers) {
             stopWaiting();
         }
+    }
+
+    private void broadcastUiConfig() {
+        if (currentServer == null) return;
+        NetworkHandler.broadcastUiConfig(currentServer, waitingText, waitingTextColor, waitingTextScale);
     }
 
     private void broadcastWaitingState() {
