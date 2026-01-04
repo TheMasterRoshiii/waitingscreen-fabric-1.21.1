@@ -6,6 +6,7 @@ import com.me.master.waitingscreen.command.WaitingScreenCommands;
 import com.me.master.waitingscreen.network.NetworkHandler;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -13,8 +14,6 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -25,9 +24,9 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
+@Slf4j
 public class Waitingscreen implements ModInitializer {
     public static final String MOD_ID = "waitingscreen";
-    public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
     @Getter
     private static Waitingscreen instance;
@@ -83,7 +82,7 @@ public class Waitingscreen implements ModInitializer {
 
     private final Set<UUID> exemptPlayers = ConcurrentHashMap.newKeySet();
     private final Map<String, byte[]> serverImageCache = new ConcurrentHashMap<>();
-    private MinecraftServer currentServer = null;
+    private volatile MinecraftServer currentServer = null;
     private int tickCounter = 0;
     private static final int UPDATE_INTERVAL = 20;
 
@@ -96,7 +95,7 @@ public class Waitingscreen implements ModInitializer {
     @Override
     public void onInitialize() {
         instance = this;
-        LOGGER.info("Initializing Waiting Screen Mod");
+        log.info("Initializing Waiting Screen Mod");
 
         NetworkHandler.registerPackets();
 
@@ -108,15 +107,15 @@ public class Waitingscreen implements ModInitializer {
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) ->
                 onPlayerJoin(handler.player));
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) ->
-                onPlayerLeave(handler.player));
+                onPlayerLeave());
         ServerTickEvents.END_SERVER_TICK.register(this::onServerTick);
 
-        LOGGER.info("Waiting Screen Mod initialized");
+        log.info("Waiting Screen Mod initialized");
     }
 
     private void onServerStarting(MinecraftServer server) {
         this.currentServer = server;
-        LOGGER.info("Server starting - loading images");
+        log.info("Server starting - loading images");
         loadServerImages();
     }
 
@@ -127,7 +126,7 @@ public class Waitingscreen implements ModInitializer {
         this.serverImageCache.clear();
         this.lastShownMissing = List.of();
         this.lastMissingMore = 0;
-        LOGGER.info("Server stopped");
+        log.info("Server stopped");
     }
 
     private void onPlayerJoin(ServerPlayerEntity player) {
@@ -140,14 +139,15 @@ public class Waitingscreen implements ModInitializer {
         }
     }
 
-    private void onPlayerLeave(ServerPlayerEntity player) {
+    private void onPlayerLeave() {
         if (waitingActive) {
             updatePlayerCount();
         }
     }
 
     private void onServerTick(MinecraftServer server) {
-        if (waitingActive) {
+        boolean active = waitingActive;
+        if (active) {
             tickCounter++;
             if (tickCounter >= UPDATE_INTERVAL) {
                 updatePlayerCount();
@@ -158,9 +158,9 @@ public class Waitingscreen implements ModInitializer {
 
     private void loadServerImages() {
         File dir = new File("config/waitingscreens/");
-        if (!dir.exists()) {
-            dir.mkdirs();
-            LOGGER.warn("Created config/waitingscreens/ directory");
+        if (!dir.exists() && !dir.mkdirs()) {
+            log.error("Failed to create config/waitingscreens/ directory");
+            return;
         }
 
         File[] files = dir.listFiles((d, name) -> {
@@ -171,44 +171,55 @@ public class Waitingscreen implements ModInitializer {
         });
 
         serverImageCache.clear();
-        if (files != null && files.length > 0) {
-            for (File file : files) {
-                try {
-                    String name = file.getName().substring(0, file.getName().lastIndexOf('.'));
 
-                    LOGGER.info("Processing image: {}", file.getName());
-                    BufferedImage image = ImageIO.read(file);
+        if (files == null || files.length == 0) {
+            log.error("=================================================");
+            log.error("NO IMAGES FOUND IN config/waitingscreens/");
+            log.error("Please add at least one image (PNG, JPG, WEBP, BMP, GIF)");
+            log.error("Example: config/waitingscreens/default.png");
+            log.error("=================================================");
+            return;
+        }
 
-                    if (image == null) {
-                        LOGGER.error("Failed to read image: {} - Unsupported format or corrupted", file.getName());
-                        continue;
-                    }
-
-                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                    ImageIO.write(image, "PNG", baos);
-                    byte[] imageData = baos.toByteArray();
-
-                    if (imageData.length == 0) {
-                        LOGGER.error("Image {} converted to 0 bytes - Skipping", file.getName());
-                        continue;
-                    }
-
-                    serverImageCache.put(name, imageData);
-                    LOGGER.info("✓ Loaded and converted image: {} ({}x{}, {} bytes)",
-                            name, image.getWidth(), image.getHeight(), imageData.length);
-
-                } catch (IOException e) {
-                    LOGGER.error("Failed to load/convert image: {}", file.getName(), e);
-                } catch (Exception e) {
-                    LOGGER.error("Unexpected error processing image: {}", file.getName(), e);
-                }
+        for (File file : files) {
+            try {
+                processImageFile(file);
+            } catch (IOException e) {
+                log.error("Failed to load image: {}", file.getName(), e);
+            } catch (IllegalArgumentException e) {
+                log.error("Invalid image format: {}", file.getName(), e);
             }
-        } else {
-            LOGGER.error("=================================================");
-            LOGGER.error("NO IMAGES FOUND IN config/waitingscreens/");
-            LOGGER.error("Please add at least one image (PNG, JPG, WEBP, BMP, GIF)");
-            LOGGER.error("Example: config/waitingscreens/default.png");
-            LOGGER.error("=================================================");
+        }
+    }
+
+    private void processImageFile(File file) throws IOException {
+        String name = file.getName();
+        int dotIndex = name.lastIndexOf('.');
+        if (dotIndex <= 0) {
+            throw new IOException("Invalid filename: " + name);
+        }
+
+        String baseName = name.substring(0, dotIndex);
+        log.info("Processing image: {}", name);
+
+        BufferedImage image = ImageIO.read(file);
+        if (image == null) {
+            throw new IOException("Unsupported format or corrupted");
+        }
+
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+            if (!ImageIO.write(image, "PNG", baos)) {
+                throw new IOException("Failed to convert image to PNG");
+            }
+
+            byte[] imageData = baos.toByteArray();
+            if (imageData.length == 0) {
+                throw new IOException("Image converted to 0 bytes");
+            }
+
+            serverImageCache.put(baseName, imageData);
+            log.info("✓ Loaded and converted image: {} ({}x{}, {} bytes)",
+                    baseName, image.getWidth(), image.getHeight(), imageData.length);
         }
     }
 
@@ -217,10 +228,20 @@ public class Waitingscreen implements ModInitializer {
                 NetworkHandler.sendImageData(player, name, data));
     }
 
+    private MinecraftServer getServerOrWarn(String operation) {
+        MinecraftServer server = this.currentServer;
+        if (server == null) {
+            log.warn("Attempted to {} while server is null", operation);
+        }
+        return server;
+    }
+
     private void broadcastAllImages() {
-        if (currentServer == null) return;
+        MinecraftServer server = getServerOrWarn("broadcast images");
+        if (server == null) return;
+
         serverImageCache.forEach((name, data) ->
-                NetworkHandler.broadcastImageData(currentServer, name, data));
+                NetworkHandler.broadcastImageData(server, name, data));
     }
 
     public void startWaiting(int required) {
@@ -243,7 +264,10 @@ public class Waitingscreen implements ModInitializer {
         lastShownMissing = List.of();
         lastMissingMore = 0;
         broadcastWaitingState();
-        if (currentServer != null) NetworkHandler.broadcastMissingNames(currentServer, List.of(), 0);
+        MinecraftServer server = this.currentServer;
+        if (server != null) {
+            NetworkHandler.broadcastMissingNames(server, List.of(), 0);
+        }
     }
 
     public boolean changeScreen(String name) {
@@ -355,7 +379,10 @@ public class Waitingscreen implements ModInitializer {
                     }
                 }
             }
-        } catch (Exception ignored) {
+        } catch (IOException e) {
+            log.error("Failed to read whitelist.json", e);
+        } catch (IllegalStateException e) {
+            log.error("Invalid JSON format in whitelist.json", e);
         }
 
         cachedWhitelistNames = Set.copyOf(out);
@@ -363,7 +390,10 @@ public class Waitingscreen implements ModInitializer {
     }
 
     private void updatePlayerCount() {
-        if (!waitingActive || currentServer == null) return;
+        if (!waitingActive) return;
+
+        MinecraftServer server = getServerOrWarn("update player count");
+        if (server == null) return;
 
         if (whitelistMode) {
             refreshWhitelistCache();
@@ -374,7 +404,7 @@ public class Waitingscreen implements ModInitializer {
             int count = 0;
             Set<String> onlineWhitelisted = new HashSet<>();
 
-            for (ServerPlayerEntity p : currentServer.getPlayerManager().getPlayerList()) {
+            for (ServerPlayerEntity p : server.getPlayerManager().getPlayerList()) {
                 if (p.hasPermissionLevel(2)) continue;
                 if (isPlayerExempt(p.getUuid())) continue;
 
@@ -404,7 +434,7 @@ public class Waitingscreen implements ModInitializer {
             if (!shown.equals(lastShownMissing) || more != lastMissingMore) {
                 lastShownMissing = shown;
                 lastMissingMore = more;
-                NetworkHandler.broadcastMissingNames(currentServer, shown, more);
+                NetworkHandler.broadcastMissingNames(server, shown, more);
             }
 
             if (count != currentPlayers) {
@@ -420,7 +450,7 @@ public class Waitingscreen implements ModInitializer {
         }
 
         int count = 0;
-        for (ServerPlayerEntity p : currentServer.getPlayerManager().getPlayerList()) {
+        for (ServerPlayerEntity p : server.getPlayerManager().getPlayerList()) {
             if (!p.hasPermissionLevel(2) && !isPlayerExempt(p.getUuid())) count++;
         }
 
@@ -435,18 +465,24 @@ public class Waitingscreen implements ModInitializer {
     }
 
     private void broadcastUiConfig() {
-        if (currentServer == null) return;
-        NetworkHandler.broadcastUiConfig(currentServer, waitingText, waitingTextColor, waitingTextScale);
+        MinecraftServer server = getServerOrWarn("broadcast UI config");
+        if (server == null) return;
+
+        NetworkHandler.broadcastUiConfig(server, waitingText, waitingTextColor, waitingTextScale);
     }
 
     private void broadcastWaitingState() {
-        if (currentServer == null) return;
-        NetworkHandler.broadcastWaitingState(currentServer, waitingActive, currentPlayers, requiredPlayers, currentScreen, allowEscMenu);
+        MinecraftServer server = getServerOrWarn("broadcast waiting state");
+        if (server == null) return;
+
+        NetworkHandler.broadcastWaitingState(server, waitingActive, currentPlayers, requiredPlayers, currentScreen, allowEscMenu);
     }
 
     private void broadcastScreenChange() {
-        if (currentServer == null) return;
-        NetworkHandler.broadcastScreenChange(currentServer, currentScreen);
+        MinecraftServer server = getServerOrWarn("broadcast screen change");
+        if (server == null) return;
+
+        NetworkHandler.broadcastScreenChange(server, currentScreen);
     }
 
     public void sendWaitingStateToPlayer(ServerPlayerEntity player) {

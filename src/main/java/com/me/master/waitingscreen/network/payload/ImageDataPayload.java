@@ -1,7 +1,6 @@
 package com.me.master.waitingscreen.network.payload;
 
 import com.me.master.waitingscreen.Waitingscreen;
-import io.netty.buffer.ByteBuf;
 import net.minecraft.network.RegistryByteBuf;
 import net.minecraft.network.codec.PacketCodec;
 import net.minecraft.network.codec.PacketCodecs;
