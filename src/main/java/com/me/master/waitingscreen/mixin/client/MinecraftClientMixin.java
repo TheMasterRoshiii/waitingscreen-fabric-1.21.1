@@ -31,7 +31,9 @@ public abstract class MinecraftClientMixin {
     @Unique
     private static final Set<Class<? extends Screen>> ALLOWED_SCREENS = Set.of(
             GameMenuScreen.class,
+            OptionsScreen.class,
             ControlsOptionsScreen.class,
+            KeybindsScreen.class,
             VideoOptionsScreen.class,
             SoundOptionsScreen.class,
             LanguageOptionsScreen.class,
@@ -80,6 +82,9 @@ public abstract class MinecraftClientMixin {
         }
 
         String screenName = screen.getClass().getName();
-        return screenName.contains("OptionsScreen") || screenName.contains("OptionsSubScreen");
+        return screenName.contains("OptionsScreen") ||
+                screenName.contains("OptionScreen") ||
+                screenName.contains("KeybindsScreen") ||
+                screenName.contains("ControlsScreen");
     }
 }

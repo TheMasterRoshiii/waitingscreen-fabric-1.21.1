@@ -19,8 +19,12 @@
     "PacketValidationMixin",
     "ExceptionHandlerMixin"
   ],
-  "client": ["client.KeyboardMixin",
-    "client.MinecraftClientMixin"],
+  "client": [
+    "client.KeyboardMixin",
+    "client.MinecraftClientMixin",
+    "client.MouseMixin",
+    "client.DisableTelemetryMixin"
+  ],
   "injectors": {
     "defaultRequire": 1
   }

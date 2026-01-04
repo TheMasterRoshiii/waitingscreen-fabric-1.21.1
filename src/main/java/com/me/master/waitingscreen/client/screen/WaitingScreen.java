@@ -17,7 +17,7 @@ import java.util.List;
 public class WaitingScreen extends Screen {
 
     public WaitingScreen() {
-        super(Text.translatable("waitingscreen.title"));
+        super(Text.translatable("waitingscreen.waiting"));
     }
 
     @Override
@@ -26,9 +26,11 @@ public class WaitingScreen extends Screen {
 
         context.getMatrices().push();
         context.getMatrices().scale(3, 3, 1);
+        int pcX = (width / 2 + WaitingscreenClient.getPlayerCountX()) / 3;
+        int pcY = (height / 2 + WaitingscreenClient.getPlayerCountY()) / 3;
         context.drawCenteredTextWithShadow(textRenderer,
                 Text.literal(WaitingscreenClient.getCurrentPlayers() + "/" + WaitingscreenClient.getRequiredPlayers()),
-                (int) (width / 2f / 3f), (int) (height / 2f / 3f + 20), 0xFF00AAFF);
+                pcX, pcY, 0xFF00AAFF);
         context.getMatrices().pop();
 
         float s = WaitingscreenClient.getWaitingTextScale();
@@ -36,44 +38,49 @@ public class WaitingScreen extends Screen {
 
         context.getMatrices().push();
         context.getMatrices().scale(s, s, 1);
+        int wtX = (width / 2 + WaitingscreenClient.getWaitingTextX()) / (int)s;
+        int wtY = (height / 2 + WaitingscreenClient.getWaitingTextY()) / (int)s;
         context.drawCenteredTextWithShadow(textRenderer,
                 Text.literal(WaitingscreenClient.getWaitingText()),
-                (int) (width / 2f / s), (int) ((height / 2f + 100) / s), WaitingscreenClient.getWaitingTextColor());
+                wtX, wtY, WaitingscreenClient.getWaitingTextColor());
         context.getMatrices().pop();
 
-        String missingLine = buildMissingLine();
-        if (!missingLine.isEmpty()) {
-            context.drawCenteredTextWithShadow(textRenderer,
-                    Text.literal(missingLine),
-                    width / 2, height / 2 + 120, 0xFFFFFFFF);
+        Text missingText = buildMissingText();
+        if (missingText != null) {
+            int mtX = width / 2 + WaitingscreenClient.getMissingTextX();
+            int mtY = height / 2 + WaitingscreenClient.getMissingTextY();
+            context.drawCenteredTextWithShadow(textRenderer, missingText, mtX, mtY, 0xFFFFFFFF);
         }
 
         if (WaitingscreenClient.isAllowEscMenu()) {
+            int etX = width / 2 + WaitingscreenClient.getEscTextX();
+            int etY = WaitingscreenClient.getEscTextY() < 0 ?
+                    height + WaitingscreenClient.getEscTextY() :
+                    WaitingscreenClient.getEscTextY();
             context.drawCenteredTextWithShadow(textRenderer,
                     Text.translatable("waitingscreen.press_esc"),
-                    width / 2, height - 30, 0xFFAAAAAA);
+                    etX, etY, 0xFFAAAAAA);
         }
     }
 
-    private String buildMissingLine() {
+    private Text buildMissingText() {
         List<String> names = WaitingscreenClient.getMissingNames();
         int more = WaitingscreenClient.getMissingMore();
 
-        if ((names == null || names.isEmpty()) && more <= 0) return "";
+        if ((names == null || names.isEmpty()) && more <= 0) return null;
 
-        StringBuilder sb = new StringBuilder();
+        String nameList = "";
         if (names != null && !names.isEmpty()) {
-            sb.append(String.join(", ", names));
+            nameList = String.join(", ", names);
         }
 
-        if (more > 0) {
-            if (!names.isEmpty()) {
-                return Text.translatable("waitingscreen.missing_more", sb.toString(), more).getString();
-            }
-            return "";
+        if (more > 0 && !nameList.isEmpty()) {
+            return Text.translatable("waitingscreen.missing_more", nameList, more);
+        } else if (!nameList.isEmpty()) {
+            return Text.translatable("waitingscreen.missing", nameList);
         }
 
-        return Text.translatable("waitingscreen.missing", sb.toString()).getString();
+        return null;
     }
 
     private void renderImage(DrawContext context) {
@@ -86,6 +93,16 @@ public class WaitingScreen extends Screen {
             return;
         }
 
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc.getTextureManager().getTexture(tex) == null) {
+            context.fill(0, 0, width, height, 0xFF000000);
+            context.drawCenteredTextWithShadow(textRenderer,
+                    Text.translatable("waitingscreen.loading", WaitingscreenClient.getCurrentScreen()),
+                    width / 2, height / 2, 0xFFFFFFFF);
+            return;
+        }
+
+        RenderSystem.setShaderTexture(0, tex);
         RenderSystem.setShaderColor(1, 1, 1, 1);
         context.drawTexture(tex, 0, 0, 0, 0, width, height, width, height);
     }

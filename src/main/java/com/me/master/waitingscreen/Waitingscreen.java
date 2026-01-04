@@ -80,6 +80,26 @@ public class Waitingscreen implements ModInitializer {
     @Getter
     private float waitingTextScale = 1.0f;
 
+    @Getter
+    private int waitingTextX = 0;
+    @Getter
+    private int waitingTextY = 100;
+
+    @Getter
+    private int playerCountX = 0;
+    @Getter
+    private int playerCountY = 20;
+
+    @Getter
+    private int missingTextX = 0;
+    @Getter
+    private int missingTextY = 120;
+
+    @Getter
+    private int escTextX = 0;
+    @Getter
+    private int escTextY = -30;
+
     private final Set<UUID> exemptPlayers = ConcurrentHashMap.newKeySet();
     private final Map<String, byte[]> serverImageCache = new ConcurrentHashMap<>();
     private volatile MinecraftServer currentServer = null;
@@ -134,7 +154,9 @@ public class Waitingscreen implements ModInitializer {
         if (waitingActive) {
             sendWaitingStateToPlayer(player);
             NetworkHandler.sendMissingNames(player, lastShownMissing, lastMissingMore);
-            NetworkHandler.sendUiConfig(player, waitingText, waitingTextColor, waitingTextScale);
+            NetworkHandler.sendUiConfig(player, waitingText, waitingTextColor, waitingTextScale,
+                    waitingTextX, waitingTextY, playerCountX, playerCountY,
+                    missingTextX, missingTextY, escTextX, escTextY);
             updatePlayerCount();
         }
     }
@@ -333,6 +355,30 @@ public class Waitingscreen implements ModInitializer {
         broadcastUiConfig();
     }
 
+    public void setWaitingTextPosition(int x, int y) {
+        this.waitingTextX = x;
+        this.waitingTextY = y;
+        broadcastUiConfig();
+    }
+
+    public void setPlayerCountPosition(int x, int y) {
+        this.playerCountX = x;
+        this.playerCountY = y;
+        broadcastUiConfig();
+    }
+
+    public void setMissingTextPosition(int x, int y) {
+        this.missingTextX = x;
+        this.missingTextY = y;
+        broadcastUiConfig();
+    }
+
+    public void setEscTextPosition(int x, int y) {
+        this.escTextX = x;
+        this.escTextY = y;
+        broadcastUiConfig();
+    }
+
     public void addExemptPlayer(UUID id) {
         exemptPlayers.add(id);
         if (waitingActive) updatePlayerCount();
@@ -468,7 +514,9 @@ public class Waitingscreen implements ModInitializer {
         MinecraftServer server = getServerOrWarn("broadcast UI config");
         if (server == null) return;
 
-        NetworkHandler.broadcastUiConfig(server, waitingText, waitingTextColor, waitingTextScale);
+        NetworkHandler.broadcastUiConfig(server, waitingText, waitingTextColor, waitingTextScale,
+                waitingTextX, waitingTextY, playerCountX, playerCountY,
+                missingTextX, missingTextY, escTextX, escTextY);
     }
 
     private void broadcastWaitingState() {

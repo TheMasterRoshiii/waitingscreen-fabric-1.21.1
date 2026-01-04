@@ -1,7 +1,6 @@
 package com.me.master.waitingscreen.network;
 
 import com.me.master.waitingscreen.network.payload.*;
-import lombok.experimental.UtilityClass;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.MinecraftServer;
@@ -9,7 +8,6 @@ import net.minecraft.server.network.ServerPlayerEntity;
 
 import java.util.List;
 
-@UtilityClass
 public class NetworkHandler {
 
     public static void registerPackets() {
@@ -21,53 +19,76 @@ public class NetworkHandler {
         PayloadTypeRegistry.playS2C().register(UiConfigPayload.ID, UiConfigPayload.CODEC);
     }
 
-    public static void sendWaitingState(ServerPlayerEntity player, boolean isWaiting, int current, int required, String screen, boolean allowEsc) {
-        ServerPlayNetworking.send(player, new WaitingStatePayload(isWaiting, current, required, screen, allowEsc));
+    public static void sendWaitingState(ServerPlayerEntity player, boolean waiting, int current, int required, String screenName, boolean allowEsc) {
+        WaitingStatePayload payload = new WaitingStatePayload(waiting, current, required, screenName, allowEsc);
+        ServerPlayNetworking.send(player, payload);
     }
 
-    public static void broadcastWaitingState(MinecraftServer server, boolean isWaiting, int current, int required, String screen, boolean allowEsc) {
+    public static void broadcastWaitingState(MinecraftServer server, boolean waiting, int current, int required, String screenName, boolean allowEsc) {
+        WaitingStatePayload payload = new WaitingStatePayload(waiting, current, required, screenName, allowEsc);
         for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-            sendWaitingState(player, isWaiting, current, required, screen, allowEsc);
+            ServerPlayNetworking.send(player, payload);
         }
     }
 
     public static void sendImageData(ServerPlayerEntity player, String screenName, byte[] imageData) {
-        ServerPlayNetworking.send(player, new ImageDataPayload(screenName, imageData));
+        ImageDataPayload payload = new ImageDataPayload(screenName, imageData);
+        ServerPlayNetworking.send(player, payload);
     }
 
     public static void broadcastImageData(MinecraftServer server, String screenName, byte[] imageData) {
+        ImageDataPayload payload = new ImageDataPayload(screenName, imageData);
         for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-            sendImageData(player, screenName, imageData);
+            ServerPlayNetworking.send(player, payload);
         }
     }
 
-    public static void sendScreenChange(ServerPlayerEntity player, String screenName) {
-        ServerPlayNetworking.send(player, new ScreenChangePayload(screenName));
+    public static void broadcastScreenChange(MinecraftServer server, String screenName) {
+        ScreenChangePayload payload = new ScreenChangePayload(screenName);
+        for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+            ServerPlayNetworking.send(player, payload);
+        }
     }
 
-    public static void broadcastScreenChange(MinecraftServer server, String screenName) {
+    public static void broadcastMissingNames(MinecraftServer server, List<String> names, int more) {
+        MissingNamesPayload payload = new MissingNamesPayload(names, more);
         for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-            sendScreenChange(player, screenName);
+            ServerPlayNetworking.send(player, payload);
         }
     }
 
     public static void sendMissingNames(ServerPlayerEntity player, List<String> names, int more) {
-        ServerPlayNetworking.send(player, new MissingNamesPayload(names, more));
+        MissingNamesPayload payload = new MissingNamesPayload(names, more);
+        ServerPlayNetworking.send(player, payload);
     }
 
-    public static void broadcastMissingNames(MinecraftServer server, List<String> names, int more) {
+    public static void broadcastUiConfig(MinecraftServer server, String text, int color, float scale,
+                                         int wtX, int wtY, int pcX, int pcY,
+                                         int mtX, int mtY, int etX, int etY) {
+        UiConfigPayload payload = new UiConfigPayload(
+                text, color, scale,
+                new UiConfigPayload.TextPosition(wtX, wtY),
+                new UiConfigPayload.TextPosition(pcX, pcY),
+                new UiConfigPayload.TextPosition(mtX, mtY),
+                new UiConfigPayload.TextPosition(etX, etY)
+        );
+
         for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-            sendMissingNames(player, names, more);
+            ServerPlayNetworking.send(player, payload);
         }
     }
 
-    public static void sendUiConfig(ServerPlayerEntity player, String waitingText, int waitingTextColor, float waitingTextScale) {
-        ServerPlayNetworking.send(player, new UiConfigPayload(waitingText, waitingTextColor, waitingTextScale));
-    }
+    public static void sendUiConfig(ServerPlayerEntity player, String text, int color, float scale,
+                                    int wtX, int wtY, int pcX, int pcY,
+                                    int mtX, int mtY, int etX, int etY) {
+        UiConfigPayload payload = new UiConfigPayload(
+                text, color, scale,
+                new UiConfigPayload.TextPosition(wtX, wtY),
+                new UiConfigPayload.TextPosition(pcX, pcY),
+                new UiConfigPayload.TextPosition(mtX, mtY),
+                new UiConfigPayload.TextPosition(etX, etY)
+        );
 
-    public static void broadcastUiConfig(MinecraftServer server, String waitingText, int waitingTextColor, float waitingTextScale) {
-        for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-            sendUiConfig(player, waitingText, waitingTextColor, waitingTextScale);
-        }
+        ServerPlayNetworking.send(player, payload);
     }
 }
