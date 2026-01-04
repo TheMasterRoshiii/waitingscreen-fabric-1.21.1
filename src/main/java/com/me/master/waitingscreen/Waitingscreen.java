@@ -5,6 +5,7 @@ import com.google.gson.JsonParser;
 import com.me.master.waitingscreen.command.WaitingScreenCommands;
 import com.me.master.waitingscreen.network.NetworkHandler;
 import lombok.Getter;
+import lombok.Setter;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -46,15 +47,19 @@ public class Waitingscreen implements ModInitializer {
     @Getter
     private boolean allowEscMenu = true;
 
+    @Setter
     @Getter
     private boolean blockChat = false;
 
+    @Setter
     @Getter
     private boolean protectPlayers = true;
 
+    @Setter
     @Getter
     private boolean blockInteractions = true;
 
+    @Setter
     @Getter
     private boolean freezeHunger = true;
 
@@ -272,22 +277,6 @@ public class Waitingscreen implements ModInitializer {
     public void setAllowEscMenu(boolean allow) {
         this.allowEscMenu = allow;
         broadcastWaitingState();
-    }
-
-    public void setBlockChat(boolean block) {
-        this.blockChat = block;
-    }
-
-    public void setProtectPlayers(boolean protect) {
-        this.protectPlayers = protect;
-    }
-
-    public void setBlockInteractions(boolean block) {
-        this.blockInteractions = block;
-    }
-
-    public void setFreezeHunger(boolean freeze) {
-        this.freezeHunger = freeze;
     }
 
     public void setWhitelistMode(boolean whitelistMode) {
