@@ -1,10 +1,5 @@
 package com.me.master.waitingscreen.mixin.client;
 
-import net.minecraft.client.gui.screen.option.MouseOptionsScreen;
-import net.minecraft.client.gui.screen.option.ChatOptionsScreen;
-import net.minecraft.client.gui.screen.option.SkinOptionsScreen;
-import net.minecraft.client.gui.screen.option.TelemetryInfoScreen;
-import net.minecraft.client.gui.screen.option.OnlineOptionsScreen;
 import com.me.master.waitingscreen.client.WaitingscreenClient;
 import com.me.master.waitingscreen.client.screen.WaitingScreen;
 import net.minecraft.client.MinecraftClient;
@@ -17,9 +12,12 @@ import net.minecraft.client.gui.screen.option.*;
 import net.minecraft.client.gui.screen.pack.PackScreen;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import java.util.Set;
 
 @Mixin(MinecraftClient.class)
 public abstract class MinecraftClientMixin {
@@ -30,6 +28,25 @@ public abstract class MinecraftClientMixin {
     @Shadow
     public abstract void setScreen(Screen screen);
 
+    @Unique
+    private static final Set<Class<? extends Screen>> ALLOWED_SCREENS = Set.of(
+            GameMenuScreen.class,
+            ControlsOptionsScreen.class,
+            VideoOptionsScreen.class,
+            SoundOptionsScreen.class,
+            LanguageOptionsScreen.class,
+            AccessibilityOptionsScreen.class,
+            MouseOptionsScreen.class,
+            ChatOptionsScreen.class,
+            SkinOptionsScreen.class,
+            TelemetryInfoScreen.class,
+            OnlineOptionsScreen.class,
+            PackScreen.class,
+            SocialInteractionsScreen.class,
+            AdvancementsScreen.class,
+            StatsScreen.class
+    );
+
     @Inject(method = "setScreen", at = @At("HEAD"), cancellable = true)
     private void forceWaitingScreen(Screen screen, CallbackInfo ci) {
         if (!WaitingscreenClient.shouldBlockInput()) return;
@@ -39,42 +56,30 @@ public abstract class MinecraftClientMixin {
         }
 
         if (WaitingscreenClient.isAllowEscMenu()) {
-            if (isAllowedScreen(screen)) {
+            if (waitingscreen$isAllowedScreen(screen)) {
                 return;
             }
 
-            if (screen == null && currentScreen != null && isAllowedScreen(currentScreen)) {
+            if (screen == null && waitingscreen$isAllowedScreen(currentScreen)) {
                 return;
             }
         }
 
         ci.cancel();
-        if (!(currentScreen instanceof WaitingScreen) && !isAllowedScreen(currentScreen)) {
+        if (!(currentScreen instanceof WaitingScreen) && !waitingscreen$isAllowedScreen(currentScreen)) {
             setScreen(new WaitingScreen());
         }
     }
 
-    private boolean isAllowedScreen(Screen screen) {
+    @Unique
+    private boolean waitingscreen$isAllowedScreen(Screen screen) {
         if (screen == null) return false;
 
-        String screenName = screen.getClass().getName();
+        if (ALLOWED_SCREENS.contains(screen.getClass())) {
+            return true;
+        }
 
-        return screen instanceof GameMenuScreen ||
-                screen instanceof ControlsOptionsScreen ||
-                screen instanceof VideoOptionsScreen ||
-                screen instanceof SoundOptionsScreen ||
-                screen instanceof LanguageOptionsScreen ||
-                screen instanceof AccessibilityOptionsScreen ||
-                screen instanceof MouseOptionsScreen ||
-                screen instanceof ChatOptionsScreen ||
-                screen instanceof SkinOptionsScreen ||
-                screen instanceof TelemetryInfoScreen ||
-                screen instanceof OnlineOptionsScreen ||
-                screen instanceof PackScreen ||
-                screen instanceof SocialInteractionsScreen ||
-                screen instanceof AdvancementsScreen ||
-                screen instanceof StatsScreen ||
-                screenName.contains("OptionsScreen") ||
-                screenName.contains("OptionsSubScreen");
+        String screenName = screen.getClass().getName();
+        return screenName.contains("OptionsScreen") || screenName.contains("OptionsSubScreen");
     }
 }

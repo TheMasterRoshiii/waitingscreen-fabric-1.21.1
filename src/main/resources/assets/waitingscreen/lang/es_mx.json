@@ -1,0 +1,7 @@
+{
+  "waitingscreen.press_esc": "Presiona ESC para configuraciones",
+  "waitingscreen.loading": "Cargando: %s",
+  "waitingscreen.waiting": "Esperando jugadores...",
+  "waitingscreen.missing": "Faltan: %s",
+  "waitingscreen.missing_more": "Faltan: %s +%d"
+}

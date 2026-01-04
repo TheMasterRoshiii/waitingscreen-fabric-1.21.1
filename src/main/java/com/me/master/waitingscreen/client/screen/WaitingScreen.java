@@ -17,7 +17,7 @@ import java.util.List;
 public class WaitingScreen extends Screen {
 
     public WaitingScreen() {
-        super(Text.literal("Waiting"));
+        super(Text.translatable("waitingscreen.title"));
     }
 
     @Override
@@ -50,7 +50,7 @@ public class WaitingScreen extends Screen {
 
         if (WaitingscreenClient.isAllowEscMenu()) {
             context.drawCenteredTextWithShadow(textRenderer,
-                    Text.literal("Presiona ESC para configuraciones"),
+                    Text.translatable("waitingscreen.press_esc"),
                     width / 2, height - 30, 0xFFAAAAAA);
         }
     }
@@ -61,15 +61,19 @@ public class WaitingScreen extends Screen {
 
         if ((names == null || names.isEmpty()) && more <= 0) return "";
 
-        StringBuilder sb = new StringBuilder("Faltan: ");
+        StringBuilder sb = new StringBuilder();
         if (names != null && !names.isEmpty()) {
-            for (int i = 0; i < names.size(); i++) {
-                if (i > 0) sb.append(", ");
-                sb.append(names.get(i));
-            }
+            sb.append(String.join(", ", names));
         }
-        if (more > 0) sb.append(" +").append(more);
-        return sb.toString();
+
+        if (more > 0) {
+            if (!names.isEmpty()) {
+                return Text.translatable("waitingscreen.missing_more", sb.toString(), more).getString();
+            }
+            return "";
+        }
+
+        return Text.translatable("waitingscreen.missing", sb.toString()).getString();
     }
 
     private void renderImage(DrawContext context) {
@@ -77,7 +81,7 @@ public class WaitingScreen extends Screen {
         if (tex == null) {
             context.fill(0, 0, width, height, 0xFF000000);
             context.drawCenteredTextWithShadow(textRenderer,
-                    Text.literal("Loading: " + WaitingscreenClient.getCurrentScreen()),
+                    Text.translatable("waitingscreen.loading", WaitingscreenClient.getCurrentScreen()),
                     width / 2, height / 2, 0xFFFFFFFF);
             return;
         }
