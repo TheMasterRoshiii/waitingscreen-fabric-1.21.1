@@ -17,8 +17,8 @@ import net.minecraft.client.gui.screen.advancement.AdvancementsScreen;
 import net.minecraft.client.gui.screen.multiplayer.SocialInteractionsScreen;
 import net.minecraft.client.gui.screen.option.*;
 import net.minecraft.client.gui.screen.pack.PackScreen;
-import net.minecraft.client.texture.NativeImageBackedTexture;
 import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.texture.NativeImageBackedTexture;
 import net.minecraft.util.Identifier;
 
 import java.io.ByteArrayInputStream;
@@ -53,12 +53,31 @@ public class WaitingscreenClient implements ClientModInitializer {
     @Getter
     private static volatile int missingMore = 0;
 
+    @Getter
+    private static int waitingTextX = 0;
+    @Getter
+    private static int waitingTextY = 100;
+    @Getter
+    private static int playerCountX = 0;
+    @Getter
+    private static int playerCountY = 20;
+    @Getter
+    private static int missingTextX = 0;
+    @Getter
+    private static int missingTextY = 120;
+    @Getter
+    private static int escTextX = 0;
+    @Getter
+    private static int escTextY = -30;
+
     private static boolean wasInWaiting = false;
     private static final Map<String, Identifier> loadedTextures = new ConcurrentHashMap<>();
 
     private static final Set<Class<? extends Screen>> ALLOWED_SCREENS = Set.of(
             GameMenuScreen.class,
+            OptionsScreen.class,
             ControlsOptionsScreen.class,
+            KeybindsScreen.class,
             VideoOptionsScreen.class,
             SoundOptionsScreen.class,
             LanguageOptionsScreen.class,
@@ -116,11 +135,23 @@ public class WaitingscreenClient implements ClientModInitializer {
                     waitingText = payload.waitingText();
                     waitingTextColor = payload.waitingTextColor();
                     waitingTextScale = payload.waitingTextScale();
+
+                    waitingTextX = payload.waitingTextPos().x();
+                    waitingTextY = payload.waitingTextPos().y();
+
+                    playerCountX = payload.playerCountPos().x();
+                    playerCountY = payload.playerCountPos().y();
+
+                    missingTextX = payload.missingTextPos().x();
+                    missingTextY = payload.missingTextPos().y();
+
+                    escTextX = payload.escTextPos().x();
+                    escTextY = payload.escTextPos().y();
                 })
         );
     }
 
-    private void registerClientEvents() {
+        private void registerClientEvents() {
         ClientTickEvents.END_CLIENT_TICK.register(this::onClientTick);
 
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {

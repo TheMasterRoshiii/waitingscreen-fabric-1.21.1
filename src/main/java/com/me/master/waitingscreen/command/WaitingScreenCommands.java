@@ -110,7 +110,48 @@ public class WaitingScreenCommands {
                                             Waitingscreen.getInstance().setWaitingTextScale(v);
                                             c.getSource().sendFeedback(() -> Text.literal("§aWaiting text scale set to: " + v), true);
                                             return 1;
-                                        }))))
+                                        })))
+                        .then(CommandManager.literal("pos")
+                                .then(CommandManager.literal("waitingtext")
+                                        .then(CommandManager.argument("x", IntegerArgumentType.integer(-10000, 10000))
+                                                .then(CommandManager.argument("y", IntegerArgumentType.integer(-10000, 10000))
+                                                        .executes(c -> {
+                                                            int x = IntegerArgumentType.getInteger(c, "x");
+                                                            int y = IntegerArgumentType.getInteger(c, "y");
+                                                            Waitingscreen.getInstance().setWaitingTextPosition(x, y);
+                                                            c.getSource().sendFeedback(() -> Text.literal("§aWaiting text position set to: x=" + x + " y=" + y), true);
+                                                            return 1;
+                                                        }))))
+                                .then(CommandManager.literal("playercount")
+                                        .then(CommandManager.argument("x", IntegerArgumentType.integer(-10000, 10000))
+                                                .then(CommandManager.argument("y", IntegerArgumentType.integer(-10000, 10000))
+                                                        .executes(c -> {
+                                                            int x = IntegerArgumentType.getInteger(c, "x");
+                                                            int y = IntegerArgumentType.getInteger(c, "y");
+                                                            Waitingscreen.getInstance().setPlayerCountPosition(x, y);
+                                                            c.getSource().sendFeedback(() -> Text.literal("§aPlayer count position set to: x=" + x + " y=" + y), true);
+                                                            return 1;
+                                                        }))))
+                                .then(CommandManager.literal("missing")
+                                        .then(CommandManager.argument("x", IntegerArgumentType.integer(-10000, 10000))
+                                                .then(CommandManager.argument("y", IntegerArgumentType.integer(-10000, 10000))
+                                                        .executes(c -> {
+                                                            int x = IntegerArgumentType.getInteger(c, "x");
+                                                            int y = IntegerArgumentType.getInteger(c, "y");
+                                                            Waitingscreen.getInstance().setMissingTextPosition(x, y);
+                                                            c.getSource().sendFeedback(() -> Text.literal("§aMissing text position set to: x=" + x + " y=" + y), true);
+                                                            return 1;
+                                                        }))))
+                                .then(CommandManager.literal("esc")
+                                        .then(CommandManager.argument("x", IntegerArgumentType.integer(-10000, 10000))
+                                                .then(CommandManager.argument("y", IntegerArgumentType.integer(-10000, 10000))
+                                                        .executes(c -> {
+                                                            int x = IntegerArgumentType.getInteger(c, "x");
+                                                            int y = IntegerArgumentType.getInteger(c, "y");
+                                                            Waitingscreen.getInstance().setEscTextPosition(x, y);
+                                                            c.getSource().sendFeedback(() -> Text.literal("§aESC text position set to: x=" + x + " y=" + y), true);
+                                                            return 1;
+                                                        }))))))
 
                 .then(CommandManager.literal("allowesc")
                         .then(CommandManager.argument("enabled", BoolArgumentType.bool())
@@ -220,6 +261,10 @@ public class WaitingScreenCommands {
                             c.getSource().sendFeedback(() -> Text.literal("§eUI Text: " + mod.getWaitingText()), false);
                             c.getSource().sendFeedback(() -> Text.literal("§eUI Color: 0x" + Integer.toHexString(mod.getWaitingTextColor()).toUpperCase()), false);
                             c.getSource().sendFeedback(() -> Text.literal("§eUI Scale: " + mod.getWaitingTextScale()), false);
+                            c.getSource().sendFeedback(() -> Text.literal("§eUI Pos waitingtext: x=" + mod.getWaitingTextX() + " y=" + mod.getWaitingTextY()), false);
+                            c.getSource().sendFeedback(() -> Text.literal("§eUI Pos playercount: x=" + mod.getPlayerCountX() + " y=" + mod.getPlayerCountY()), false);
+                            c.getSource().sendFeedback(() -> Text.literal("§eUI Pos missing: x=" + mod.getMissingTextX() + " y=" + mod.getMissingTextY()), false);
+                            c.getSource().sendFeedback(() -> Text.literal("§eUI Pos esc: x=" + mod.getEscTextX() + " y=" + mod.getEscTextY()), false);
                             c.getSource().sendFeedback(() -> Text.literal("§eCurrent Screen: " + mod.getCurrentScreen()), false);
                             c.getSource().sendFeedback(() -> Text.literal("§eESC Menu Allowed: " + mod.isAllowEscMenu()), false);
                             c.getSource().sendFeedback(() -> Text.literal("§eChat Blocked: " + mod.isBlockChat()), false);
