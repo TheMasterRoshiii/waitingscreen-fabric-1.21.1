@@ -6,8 +6,6 @@ import net.minecraft.network.codec.PacketCodec;
 import net.minecraft.network.packet.CustomPayload;
 import net.minecraft.util.Identifier;
 
-
-
 public record UiConfigPayload(
         String waitingText,
         int waitingTextColor,
@@ -15,7 +13,9 @@ public record UiConfigPayload(
         TextPosition waitingTextPos,
         TextPosition playerCountPos,
         TextPosition missingTextPos,
-        TextPosition escTextPos
+        TextPosition escTextPos,
+        int playerCurrentColor,
+        int playerRequiredColor
 ) implements CustomPayload {
 
     public static final Id<UiConfigPayload> ID =
@@ -32,26 +32,31 @@ public record UiConfigPayload(
                 new TextPosition(buf.readVarInt(), buf.readVarInt()),
                 new TextPosition(buf.readVarInt(), buf.readVarInt()),
                 new TextPosition(buf.readVarInt(), buf.readVarInt()),
-                new TextPosition(buf.readVarInt(), buf.readVarInt())
+                new TextPosition(buf.readVarInt(), buf.readVarInt()),
+                buf.readVarInt(),
+                buf.readVarInt()
         );
     }
 
     private void write(RegistryByteBuf buf) {
-        buf.writeString(this.waitingText);
-        buf.writeVarInt(this.waitingTextColor);
-        buf.writeFloat(this.waitingTextScale);
+        buf.writeString(waitingText);
+        buf.writeVarInt(waitingTextColor);
+        buf.writeFloat(waitingTextScale);
 
-        buf.writeVarInt(this.waitingTextPos.x());
-        buf.writeVarInt(this.waitingTextPos.y());
+        buf.writeVarInt(waitingTextPos.x());
+        buf.writeVarInt(waitingTextPos.y());
 
-        buf.writeVarInt(this.playerCountPos.x());
-        buf.writeVarInt(this.playerCountPos.y());
+        buf.writeVarInt(playerCountPos.x());
+        buf.writeVarInt(playerCountPos.y());
 
-        buf.writeVarInt(this.missingTextPos.x());
-        buf.writeVarInt(this.missingTextPos.y());
+        buf.writeVarInt(missingTextPos.x());
+        buf.writeVarInt(missingTextPos.y());
 
-        buf.writeVarInt(this.escTextPos.x());
-        buf.writeVarInt(this.escTextPos.y());
+        buf.writeVarInt(escTextPos.x());
+        buf.writeVarInt(escTextPos.y());
+
+        buf.writeVarInt(playerCurrentColor);
+        buf.writeVarInt(playerRequiredColor);
     }
 
     @Override

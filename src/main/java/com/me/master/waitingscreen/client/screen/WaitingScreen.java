@@ -26,11 +26,24 @@ public class WaitingScreen extends Screen {
 
         context.getMatrices().push();
         context.getMatrices().scale(3, 3, 1);
-        int pcX = (width / 2 + WaitingscreenClient.getPlayerCountX()) / 3;
-        int pcY = (height / 2 + WaitingscreenClient.getPlayerCountY()) / 3;
-        context.drawCenteredTextWithShadow(textRenderer,
-                Text.literal(WaitingscreenClient.getCurrentPlayers() + "/" + WaitingscreenClient.getRequiredPlayers()),
-                pcX, pcY, 0xFF00AAFF);
+
+        int centerX = (width / 2 + WaitingscreenClient.getPlayerCountX()) / 3;
+        int y = (height / 2 + WaitingscreenClient.getPlayerCountY()) / 3;
+
+        String a = String.valueOf(WaitingscreenClient.getCurrentPlayers());
+        String b = "/";
+        String c = String.valueOf(WaitingscreenClient.getRequiredPlayers());
+
+        int wa = textRenderer.getWidth(a);
+        int wb = textRenderer.getWidth(b);
+        int wc = textRenderer.getWidth(c);
+
+        int left = centerX - (wa + wb + wc) / 2;
+
+        context.drawTextWithShadow(textRenderer, a, left, y, WaitingscreenClient.getPlayerCurrentColor());
+        context.drawTextWithShadow(textRenderer, b, left + wa, y, 0xFFFFFFFF);
+        context.drawTextWithShadow(textRenderer, c, left + wa + wb, y, WaitingscreenClient.getPlayerRequiredColor());
+
         context.getMatrices().pop();
 
         float s = WaitingscreenClient.getWaitingTextScale();
@@ -38,11 +51,14 @@ public class WaitingScreen extends Screen {
 
         context.getMatrices().push();
         context.getMatrices().scale(s, s, 1);
-        int wtX = (width / 2 + WaitingscreenClient.getWaitingTextX()) / (int)s;
-        int wtY = (height / 2 + WaitingscreenClient.getWaitingTextY()) / (int)s;
+
+        int wtX = (int) ((width / 2f + WaitingscreenClient.getWaitingTextX()) / s);
+        int wtY = (int) ((height / 2f + WaitingscreenClient.getWaitingTextY()) / s);
+
         context.drawCenteredTextWithShadow(textRenderer,
                 Text.literal(WaitingscreenClient.getWaitingText()),
                 wtX, wtY, WaitingscreenClient.getWaitingTextColor());
+
         context.getMatrices().pop();
 
         Text missingText = buildMissingText();
@@ -54,9 +70,7 @@ public class WaitingScreen extends Screen {
 
         if (WaitingscreenClient.isAllowEscMenu()) {
             int etX = width / 2 + WaitingscreenClient.getEscTextX();
-            int etY = WaitingscreenClient.getEscTextY() < 0 ?
-                    height + WaitingscreenClient.getEscTextY() :
-                    WaitingscreenClient.getEscTextY();
+            int etY = WaitingscreenClient.getEscTextY() < 0 ? height + WaitingscreenClient.getEscTextY() : WaitingscreenClient.getEscTextY();
             context.drawCenteredTextWithShadow(textRenderer,
                     Text.translatable("waitingscreen.press_esc"),
                     etX, etY, 0xFFAAAAAA);
