@@ -292,18 +292,26 @@ public class WaitingScreenCommands {
 
     private static int parseColor(String raw) {
         String s = raw.trim();
-        if (s.startsWith("#")) s = s.substring(1);
-        if (s.startsWith("0x") || s.startsWith("0X")) s = s.substring(2);
+        boolean hex = false;
 
-        if (s.length() == 6) {
-            int rgb = (int) Long.parseLong(s, 16);
-            return 0xFF000000 | rgb;
+        if (s.startsWith("#")) { s = s.substring(1); hex = true; }
+        if (s.startsWith("0x") || s.startsWith("0X")) { s = s.substring(2); hex = true; }
+
+
+        if (hex) {
+            int v = (int) Long.parseLong(s, 16);
+
+
+            if (s.length() <= 6 || (v & 0xFF000000) == 0) {
+                v |= 0xFF000000;
+            }
+            return v;
         }
 
-        if (s.length() == 8) {
-            return (int) Long.parseLong(s, 16);
-        }
 
-        return (int) Long.parseLong(s, 10);
+        int v = (int) Long.parseLong(s, 10);
+        if ((v & 0xFF000000) == 0) v |= 0xFF000000;
+        return v;
     }
+
 }
