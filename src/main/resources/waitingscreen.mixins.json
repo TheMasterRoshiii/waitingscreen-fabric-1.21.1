@@ -15,7 +15,6 @@
     "PlayerInteractEntityMixin",
     "UpdateSelectedSlotMixin",
     "PlayerActionMixin",
-    "NetworkSafetyMixin",
     "PacketValidationMixin",
     "ExceptionHandlerMixin"
   ],
