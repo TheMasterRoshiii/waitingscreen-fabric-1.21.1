@@ -153,6 +153,17 @@ public class WaitingScreenCommands {
                                                             return 1;
                                                         }))))))
 
+                .then(CommandManager.literal("playercountcolor")
+                        .then(CommandManager.argument("current", StringArgumentType.string())
+                                .then(CommandManager.argument("required", StringArgumentType.string())
+                                        .executes(c -> {
+                                            int current = parseColor(StringArgumentType.getString(c, "current"));
+                                            int required = parseColor(StringArgumentType.getString(c, "required"));
+                                            Waitingscreen.getInstance().setPlayerCountColors(current, required);
+                                            c.getSource().sendFeedback(() -> Text.literal("§aPlayer count colors updated"), true);
+                                            return 1;
+                                        })))) // <- AQUÍ era el paréntesis extra
+
                 .then(CommandManager.literal("allowesc")
                         .then(CommandManager.argument("enabled", BoolArgumentType.bool())
                                 .executes(c -> {
@@ -261,6 +272,10 @@ public class WaitingScreenCommands {
                             c.getSource().sendFeedback(() -> Text.literal("§eUI Text: " + mod.getWaitingText()), false);
                             c.getSource().sendFeedback(() -> Text.literal("§eUI Color: 0x" + Integer.toHexString(mod.getWaitingTextColor()).toUpperCase()), false);
                             c.getSource().sendFeedback(() -> Text.literal("§eUI Scale: " + mod.getWaitingTextScale()), false);
+
+                            c.getSource().sendFeedback(() -> Text.literal("§ePlayerCount Color current: 0x" + Integer.toHexString(mod.getPlayerCurrentColor()).toUpperCase()), false);
+                            c.getSource().sendFeedback(() -> Text.literal("§ePlayerCount Color required: 0x" + Integer.toHexString(mod.getPlayerRequiredColor()).toUpperCase()), false);
+
                             c.getSource().sendFeedback(() -> Text.literal("§eUI Pos waitingtext: x=" + mod.getWaitingTextX() + " y=" + mod.getWaitingTextY()), false);
                             c.getSource().sendFeedback(() -> Text.literal("§eUI Pos playercount: x=" + mod.getPlayerCountX() + " y=" + mod.getPlayerCountY()), false);
                             c.getSource().sendFeedback(() -> Text.literal("§eUI Pos missing: x=" + mod.getMissingTextX() + " y=" + mod.getMissingTextY()), false);
@@ -271,7 +286,8 @@ public class WaitingScreenCommands {
                             c.getSource().sendFeedback(() -> Text.literal("§ePlayer Protection: " + mod.isProtectPlayers()), false);
                             c.getSource().sendFeedback(() -> Text.literal("§eInteractions Blocked: " + mod.isBlockInteractions()), false);
                             return 1;
-                        })));
+                        }))
+        );
     }
 
     private static int parseColor(String raw) {

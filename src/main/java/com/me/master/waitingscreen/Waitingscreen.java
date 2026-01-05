@@ -9,6 +9,7 @@ import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
@@ -28,80 +29,45 @@ import java.util.concurrent.ConcurrentHashMap;
 public class Waitingscreen implements ModInitializer {
     public static final String MOD_ID = "waitingscreen";
 
-    @Getter
-    private static Waitingscreen instance;
+    @Getter private static Waitingscreen instance;
 
-    @Getter
-    private boolean waitingActive = false;
+    @Getter private boolean waitingActive = false;
+    @Getter private int requiredPlayers = 4;
+    @Getter private int currentPlayers = 0;
+    @Getter private String currentScreen = "default";
+    @Getter private boolean allowEscMenu = true;
 
-    @Getter
-    private int requiredPlayers = 4;
+    @Setter @Getter private boolean blockChat = false;
+    @Setter @Getter private boolean protectPlayers = true;
+    @Setter @Getter private boolean blockInteractions = true;
+    @Setter @Getter private boolean freezeHunger = true;
 
-    @Getter
-    private int currentPlayers = 0;
+    @Getter private boolean whitelistMode = true;
+    @Getter private int showNamesWhenMissingAtMost = 5;
+    @Getter private int maxNamesToShow = 3;
 
-    @Getter
-    private String currentScreen = "default";
+    @Getter private String waitingText = "Esperando jugadores...";
+    @Getter private int waitingTextColor = 0xFFFFFFFF;
+    @Getter private float waitingTextScale = 1.0f;
 
-    @Getter
-    private boolean allowEscMenu = true;
+    @Getter private int waitingTextX = 0;
+    @Getter private int waitingTextY = 100;
 
-    @Setter
-    @Getter
-    private boolean blockChat = false;
+    @Getter private int playerCountX = 0;
+    @Getter private int playerCountY = 20;
 
-    @Setter
-    @Getter
-    private boolean protectPlayers = true;
+    @Getter private int missingTextX = 0;
+    @Getter private int missingTextY = 120;
 
-    @Setter
-    @Getter
-    private boolean blockInteractions = true;
+    @Getter private int escTextX = 0;
+    @Getter private int escTextY = -30;
 
-    @Setter
-    @Getter
-    private boolean freezeHunger = true;
-
-    @Getter
-    private boolean whitelistMode = true;
-
-    @Getter
-    private int showNamesWhenMissingAtMost = 5;
-
-    @Getter
-    private int maxNamesToShow = 3;
-
-    @Getter
-    private String waitingText = "Esperando jugadores...";
-
-    @Getter
-    private int waitingTextColor = 0xFFFFFFFF;
-
-    @Getter
-    private float waitingTextScale = 1.0f;
-
-    @Getter
-    private int waitingTextX = 0;
-    @Getter
-    private int waitingTextY = 100;
-
-    @Getter
-    private int playerCountX = 0;
-    @Getter
-    private int playerCountY = 20;
-
-    @Getter
-    private int missingTextX = 0;
-    @Getter
-    private int missingTextY = 120;
-
-    @Getter
-    private int escTextX = 0;
-    @Getter
-    private int escTextY = -30;
+    @Getter private int playerCurrentColor = 0xFFFFFFFF;
+    @Getter private int playerRequiredColor = 0xFFFFFFFF;
 
     private final Set<UUID> exemptPlayers = ConcurrentHashMap.newKeySet();
     private final Map<String, byte[]> serverImageCache = new ConcurrentHashMap<>();
+
     private volatile MinecraftServer currentServer = null;
     private int tickCounter = 0;
     private static final int UPDATE_INTERVAL = 20;
@@ -115,7 +81,6 @@ public class Waitingscreen implements ModInitializer {
     @Override
     public void onInitialize() {
         instance = this;
-        log.info("Initializing Waiting Screen Mod");
 
         NetworkHandler.registerPackets();
 
@@ -124,18 +89,20 @@ public class Waitingscreen implements ModInitializer {
 
         ServerLifecycleEvents.SERVER_STARTING.register(this::onServerStarting);
         ServerLifecycleEvents.SERVER_STOPPED.register(this::onServerStopped);
+
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) ->
                 onPlayerJoin(handler.player));
+
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) ->
                 onPlayerLeave());
+
         ServerTickEvents.END_SERVER_TICK.register(this::onServerTick);
 
-        log.info("Waiting Screen Mod initialized");
+        ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> onPlayerRespawn(newPlayer));
     }
 
     private void onServerStarting(MinecraftServer server) {
         this.currentServer = server;
-        log.info("Server starting - loading images");
         loadServerImages();
     }
 
@@ -146,44 +113,59 @@ public class Waitingscreen implements ModInitializer {
         this.serverImageCache.clear();
         this.lastShownMissing = List.of();
         this.lastMissingMore = 0;
-        log.info("Server stopped");
     }
 
     private void onPlayerJoin(ServerPlayerEntity player) {
         sendAllImagesToPlayer(player);
+
         if (waitingActive) {
             sendWaitingStateToPlayer(player);
             NetworkHandler.sendMissingNames(player, lastShownMissing, lastMissingMore);
-            NetworkHandler.sendUiConfig(player, waitingText, waitingTextColor, waitingTextScale,
+
+            NetworkHandler.sendUiConfig(
+                    player,
+                    waitingText, waitingTextColor, waitingTextScale,
                     waitingTextX, waitingTextY, playerCountX, playerCountY,
-                    missingTextX, missingTextY, escTextX, escTextY);
+                    missingTextX, missingTextY, escTextX, escTextY,
+                    playerCurrentColor, playerRequiredColor
+            );
+
             updatePlayerCount();
         }
+    }
+
+    private void onPlayerRespawn(ServerPlayerEntity player) {
+        if (!waitingActive) return;
+
+        sendWaitingStateToPlayer(player);
+        NetworkHandler.sendMissingNames(player, lastShownMissing, lastMissingMore);
+
+        NetworkHandler.sendUiConfig(
+                player,
+                waitingText, waitingTextColor, waitingTextScale,
+                waitingTextX, waitingTextY, playerCountX, playerCountY,
+                missingTextX, missingTextY, escTextX, escTextY,
+                playerCurrentColor, playerRequiredColor
+        );
     }
 
     private void onPlayerLeave() {
-        if (waitingActive) {
-            updatePlayerCount();
-        }
+        if (waitingActive) updatePlayerCount();
     }
 
     private void onServerTick(MinecraftServer server) {
-        boolean active = waitingActive;
-        if (active) {
-            tickCounter++;
-            if (tickCounter >= UPDATE_INTERVAL) {
-                updatePlayerCount();
-                tickCounter = 0;
-            }
+        if (!waitingActive) return;
+
+        tickCounter++;
+        if (tickCounter >= UPDATE_INTERVAL) {
+            updatePlayerCount();
+            tickCounter = 0;
         }
     }
 
     private void loadServerImages() {
         File dir = new File("config/waitingscreens/");
-        if (!dir.exists() && !dir.mkdirs()) {
-            log.error("Failed to create config/waitingscreens/ directory");
-            return;
-        }
+        if (!dir.exists() && !dir.mkdirs()) return;
 
         File[] files = dir.listFiles((d, name) -> {
             String lower = name.toLowerCase();
@@ -197,7 +179,6 @@ public class Waitingscreen implements ModInitializer {
         if (files == null || files.length == 0) {
             log.error("=================================================");
             log.error("NO IMAGES FOUND IN config/waitingscreens/");
-            log.error("Please add at least one image (PNG, JPG, WEBP, BMP, GIF)");
             log.error("Example: config/waitingscreens/default.png");
             log.error("=================================================");
             return;
@@ -217,64 +198,51 @@ public class Waitingscreen implements ModInitializer {
     private void processImageFile(File file) throws IOException {
         String name = file.getName();
         int dotIndex = name.lastIndexOf('.');
-        if (dotIndex <= 0) {
-            throw new IOException("Invalid filename: " + name);
-        }
+        if (dotIndex <= 0) throw new IOException("Invalid filename: " + name);
 
         String baseName = name.substring(0, dotIndex);
-        log.info("Processing image: {}", name);
 
         BufferedImage image = ImageIO.read(file);
-        if (image == null) {
-            throw new IOException("Unsupported format or corrupted");
-        }
+        if (image == null) throw new IOException("Unsupported format or corrupted");
 
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-            if (!ImageIO.write(image, "PNG", baos)) {
-                throw new IOException("Failed to convert image to PNG");
-            }
-
+            if (!ImageIO.write(image, "PNG", baos)) throw new IOException("Failed to convert image to PNG");
             byte[] imageData = baos.toByteArray();
-            if (imageData.length == 0) {
-                throw new IOException("Image converted to 0 bytes");
-            }
-
+            if (imageData.length == 0) throw new IOException("Image converted to 0 bytes");
             serverImageCache.put(baseName, imageData);
-            log.info("✓ Loaded and converted image: {} ({}x{}, {} bytes)",
-                    baseName, image.getWidth(), image.getHeight(), imageData.length);
         }
     }
 
     private void sendAllImagesToPlayer(ServerPlayerEntity player) {
-        serverImageCache.forEach((name, data) ->
-                NetworkHandler.sendImageData(player, name, data));
+        serverImageCache.forEach((name, data) -> NetworkHandler.sendImageData(player, name, data));
     }
 
     private MinecraftServer getServerOrWarn(String operation) {
         MinecraftServer server = this.currentServer;
-        if (server == null) {
-            log.warn("Attempted to {} while server is null", operation);
-        }
+        if (server == null) log.warn("Attempted to {} while server is null", operation);
         return server;
     }
 
     private void broadcastAllImages() {
         MinecraftServer server = getServerOrWarn("broadcast images");
         if (server == null) return;
-
-        serverImageCache.forEach((name, data) ->
-                NetworkHandler.broadcastImageData(server, name, data));
+        serverImageCache.forEach((name, data) -> NetworkHandler.broadcastImageData(server, name, data));
     }
 
     public void startWaiting(int required) {
+        refreshWhitelistCache();
+
         if (whitelistMode) {
-            refreshWhitelistCache();
-            requiredPlayers = cachedWhitelistNames.size();
+            int expected = cachedWhitelistNames.size();
+            if (expected > 0) requiredPlayers = expected;
+            else requiredPlayers = required > 0 ? required : 4;
         } else {
-            requiredPlayers = required;
+            requiredPlayers = required > 0 ? required : 4;
         }
+
         waitingActive = true;
         currentPlayers = 0;
+
         updatePlayerCount();
         broadcastWaitingState();
         broadcastUiConfig();
@@ -285,7 +253,9 @@ public class Waitingscreen implements ModInitializer {
         currentPlayers = 0;
         lastShownMissing = List.of();
         lastMissingMore = 0;
+
         broadcastWaitingState();
+
         MinecraftServer server = this.currentServer;
         if (server != null) {
             NetworkHandler.broadcastMissingNames(server, List.of(), 0);
@@ -293,12 +263,10 @@ public class Waitingscreen implements ModInitializer {
     }
 
     public boolean changeScreen(String name) {
-        if (serverImageCache.containsKey(name)) {
-            currentScreen = name;
-            broadcastScreenChange();
-            return true;
-        }
-        return false;
+        if (!serverImageCache.containsKey(name)) return false;
+        currentScreen = name;
+        broadcastScreenChange();
+        return true;
     }
 
     public void reloadScreens() {
@@ -314,9 +282,7 @@ public class Waitingscreen implements ModInitializer {
         this.requiredPlayers = count;
         if (waitingActive) {
             broadcastWaitingState();
-            if (count > 0) {
-                updatePlayerCount();
-            }
+            if (count > 0) updatePlayerCount();
         }
     }
 
@@ -379,14 +345,26 @@ public class Waitingscreen implements ModInitializer {
         broadcastUiConfig();
     }
 
+    public void setPlayerCountColors(int currentColor, int requiredColor) {
+        this.playerCurrentColor = currentColor;
+        this.playerRequiredColor = requiredColor;
+        broadcastUiConfig();
+    }
+
     public void addExemptPlayer(UUID id) {
         exemptPlayers.add(id);
-        if (waitingActive) updatePlayerCount();
+        if (waitingActive) {
+            updatePlayerCount();
+            broadcastWaitingState();
+        }
     }
 
     public void removeExemptPlayer(UUID id) {
         exemptPlayers.remove(id);
-        if (waitingActive) updatePlayerCount();
+        if (waitingActive) {
+            updatePlayerCount();
+            broadcastWaitingState();
+        }
     }
 
     public boolean isPlayerExempt(UUID id) {
@@ -395,7 +373,10 @@ public class Waitingscreen implements ModInitializer {
 
     public void clearExemptPlayers() {
         exemptPlayers.clear();
-        if (waitingActive) updatePlayerCount();
+        if (waitingActive) {
+            updatePlayerCount();
+            broadcastWaitingState();
+        }
     }
 
     public Set<UUID> getExemptPlayers() {
@@ -443,9 +424,13 @@ public class Waitingscreen implements ModInitializer {
 
         if (whitelistMode) {
             refreshWhitelistCache();
+
             Set<String> whitelist = cachedWhitelistNames;
             int expected = whitelist.size();
-            if (expected != requiredPlayers) requiredPlayers = expected;
+
+            if (expected > 0 && expected != requiredPlayers) {
+                requiredPlayers = expected;
+            }
 
             int count = 0;
             Set<String> onlineWhitelisted = new HashSet<>();
@@ -514,16 +499,29 @@ public class Waitingscreen implements ModInitializer {
         MinecraftServer server = getServerOrWarn("broadcast UI config");
         if (server == null) return;
 
-        NetworkHandler.broadcastUiConfig(server, waitingText, waitingTextColor, waitingTextScale,
+        NetworkHandler.broadcastUiConfig(
+                server,
+                waitingText, waitingTextColor, waitingTextScale,
                 waitingTextX, waitingTextY, playerCountX, playerCountY,
-                missingTextX, missingTextY, escTextX, escTextY);
+                missingTextX, missingTextY, escTextX, escTextY,
+                playerCurrentColor, playerRequiredColor
+        );
     }
 
+    /** FIX: delega a NetworkHandler.broadcastWaitingState(...) seguro (exempt per-player). */
     private void broadcastWaitingState() {
         MinecraftServer server = getServerOrWarn("broadcast waiting state");
         if (server == null) return;
 
-        NetworkHandler.broadcastWaitingState(server, waitingActive, currentPlayers, requiredPlayers, currentScreen, allowEscMenu);
+        NetworkHandler.broadcastWaitingState(
+                server,
+                waitingActive,
+                currentPlayers,
+                requiredPlayers,
+                currentScreen,
+                allowEscMenu,
+                p -> p.hasPermissionLevel(2) || isPlayerExempt(p.getUuid())
+        );
     }
 
     private void broadcastScreenChange() {
@@ -534,6 +532,16 @@ public class Waitingscreen implements ModInitializer {
     }
 
     public void sendWaitingStateToPlayer(ServerPlayerEntity player) {
-        NetworkHandler.sendWaitingState(player, waitingActive, currentPlayers, requiredPlayers, currentScreen, allowEscMenu);
+        boolean isExemptForClient = player.hasPermissionLevel(2) || isPlayerExempt(player.getUuid());
+
+        NetworkHandler.sendWaitingState(
+                player,
+                waitingActive,
+                currentPlayers,
+                requiredPlayers,
+                currentScreen,
+                allowEscMenu,
+                isExemptForClient
+        );
     }
 }

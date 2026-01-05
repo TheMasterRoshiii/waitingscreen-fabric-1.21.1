@@ -32,43 +32,32 @@ import java.util.concurrent.ConcurrentHashMap;
 @Environment(EnvType.CLIENT)
 public class WaitingscreenClient implements ClientModInitializer {
 
-    @Getter
-    private static boolean waitingActive = false;
-    @Getter
-    private static int currentPlayers = 0;
-    @Getter
-    private static int requiredPlayers = 4;
-    @Getter
-    private static String currentScreen = "default";
-    @Getter
-    private static boolean allowEscMenu = true;
-    @Getter
-    private static String waitingText = "Esperando jugadores...";
-    @Getter
-    private static int waitingTextColor = 0xFFFFFFFF;
-    @Getter
-    private static float waitingTextScale = 1.0f;
-    @Getter
-    private static volatile List<String> missingNames = List.of();
-    @Getter
-    private static volatile int missingMore = 0;
+    @Getter private static boolean waitingActive = false;
+    @Getter private static int currentPlayers = 0;
+    @Getter private static int requiredPlayers = 4;
+    @Getter private static String currentScreen = "default";
+    @Getter private static boolean allowEscMenu = true;
 
-    @Getter
-    private static int waitingTextX = 0;
-    @Getter
-    private static int waitingTextY = 100;
-    @Getter
-    private static int playerCountX = 0;
-    @Getter
-    private static int playerCountY = 20;
-    @Getter
-    private static int missingTextX = 0;
-    @Getter
-    private static int missingTextY = 120;
-    @Getter
-    private static int escTextX = 0;
-    @Getter
-    private static int escTextY = -30;
+    @Getter private static boolean exempt = false;
+
+    @Getter private static String waitingText = "Esperando jugadores...";
+    @Getter private static int waitingTextColor = 0xFFFFFFFF;
+    @Getter private static float waitingTextScale = 1.0f;
+
+    @Getter private static int playerCurrentColor = 0xFFFFFFFF;
+    @Getter private static int playerRequiredColor = 0xFFFFFFFF;
+
+    @Getter private static volatile List<String> missingNames = List.of();
+    @Getter private static volatile int missingMore = 0;
+
+    @Getter private static int waitingTextX = 0;
+    @Getter private static int waitingTextY = 100;
+    @Getter private static int playerCountX = 0;
+    @Getter private static int playerCountY = 20;
+    @Getter private static int missingTextX = 0;
+    @Getter private static int missingTextY = 120;
+    @Getter private static int escTextX = 0;
+    @Getter private static int escTextY = -30;
 
     private static boolean wasInWaiting = false;
     private static final Map<String, Identifier> loadedTextures = new ConcurrentHashMap<>();
@@ -90,12 +79,12 @@ public class WaitingscreenClient implements ClientModInitializer {
             PackScreen.class,
             SocialInteractionsScreen.class,
             AdvancementsScreen.class,
-            StatsScreen.class
+            StatsScreen.class,
+            DeathScreen.class
     );
 
     @Override
     public void onInitializeClient() {
-        log.info("Initializing client");
         registerClientPacketHandlers();
         registerClientEvents();
     }
@@ -103,11 +92,12 @@ public class WaitingscreenClient implements ClientModInitializer {
     private void registerClientPacketHandlers() {
         ClientPlayNetworking.registerGlobalReceiver(WaitingStatePayload.ID, (payload, context) ->
                 context.client().execute(() -> {
-                    waitingActive = payload.isWaiting();
-                    currentPlayers = payload.currentPlayers();
-                    requiredPlayers = payload.requiredPlayers();
+                    waitingActive = payload.waiting();
+                    currentPlayers = payload.current();
+                    requiredPlayers = payload.required();
                     currentScreen = payload.screenName();
-                    allowEscMenu = payload.allowEscMenu();
+                    allowEscMenu = payload.allowEsc();
+                    exempt = payload.exempt();
                 })
         );
 
@@ -147,29 +137,35 @@ public class WaitingscreenClient implements ClientModInitializer {
 
                     escTextX = payload.escTextPos().x();
                     escTextY = payload.escTextPos().y();
+
+                    playerCurrentColor = payload.playerCurrentColor();
+                    playerRequiredColor = payload.playerRequiredColor();
                 })
         );
     }
 
-        private void registerClientEvents() {
+    private void registerClientEvents() {
         ClientTickEvents.END_CLIENT_TICK.register(this::onClientTick);
 
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             cleanupTextures();
             wasInWaiting = false;
             waitingActive = false;
+            exempt = false;
+            currentPlayers = 0;
+            requiredPlayers = 4;
+            currentScreen = "default";
         });
     }
 
     private void onClientTick(MinecraftClient mc) {
         if (mc.player == null || mc.world == null) return;
+        if (mc.currentScreen instanceof DeathScreen) return;
 
         boolean shouldShow = shouldShowWaitingScreen(mc.player);
 
         if (shouldShow) {
-            if (!wasInWaiting) {
-                wasInWaiting = true;
-            }
+            if (!wasInWaiting) wasInWaiting = true;
 
             if (mc.currentScreen == null) {
                 mc.setScreen(new WaitingScreen());
@@ -190,20 +186,12 @@ public class WaitingscreenClient implements ClientModInitializer {
 
     private static boolean shouldShowWaitingScreen(ClientPlayerEntity player) {
         if (!waitingActive || player == null) return false;
-
-        Waitingscreen mod = Waitingscreen.getInstance();
-        boolean isOP = player.hasPermissionLevel(2);
-        boolean isExempt = mod != null && mod.isPlayerExempt(player.getUuid());
-
-        return !isOP && !isExempt;
+        return !exempt;
     }
 
     private boolean isAllowedScreen(Screen screen) {
         if (screen == null) return false;
-
-        if (ALLOWED_SCREENS.contains(screen.getClass())) {
-            return true;
-        }
+        if (ALLOWED_SCREENS.contains(screen.getClass())) return true;
 
         String screenName = screen.getClass().getName();
         return screenName.contains("OptionsScreen") || screenName.contains("OptionsSubScreen");
@@ -220,9 +208,7 @@ public class WaitingscreenClient implements ClientModInitializer {
                 if (old != null) {
                     MinecraftClient.getInstance().getTextureManager().destroyTexture(old);
                 }
-                MinecraftClient.getInstance().getTextureManager().registerTexture(location,
-                        new NativeImageBackedTexture(image));
-                log.info("Loaded texture from server: {}", screenName);
+                MinecraftClient.getInstance().getTextureManager().registerTexture(location, new NativeImageBackedTexture(image));
             });
         } catch (IOException e) {
             log.error("Failed to load image: {}", screenName, e);
@@ -236,8 +222,7 @@ public class WaitingscreenClient implements ClientModInitializer {
         loadedTextures.forEach((name, id) -> {
             try {
                 mc.getTextureManager().destroyTexture(id);
-            } catch (Exception e) {
-                System.err.println("Failed to destroy texture: " + name);
+            } catch (Exception ignored) {
             }
         });
         loadedTextures.clear();
@@ -250,7 +235,7 @@ public class WaitingscreenClient implements ClientModInitializer {
     public static boolean shouldBlockInput() {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player == null) return false;
-
-        return shouldShowWaitingScreen(mc.player);
+        if (mc.currentScreen instanceof DeathScreen) return false;
+        return waitingActive && !exempt;
     }
 }
