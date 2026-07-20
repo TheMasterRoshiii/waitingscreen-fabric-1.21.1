@@ -6,6 +6,8 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -42,14 +44,31 @@ public class NetworkHandler {
 
 
     public static void sendImageData(ServerPlayerEntity player, String screenName, byte[] imageData) {
-        ServerPlayNetworking.send(player, new ImageDataPayload(screenName, imageData));
+        for (ImageDataPayload chunk : chunkImage(screenName, imageData)) {
+            ServerPlayNetworking.send(player, chunk);
+        }
     }
 
     public static void broadcastImageData(MinecraftServer server, String screenName, byte[] imageData) {
-        ImageDataPayload payload = new ImageDataPayload(screenName, imageData);
+        List<ImageDataPayload> chunks = chunkImage(screenName, imageData);
         for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-            ServerPlayNetworking.send(player, payload);
+            for (ImageDataPayload chunk : chunks) {
+                ServerPlayNetworking.send(player, chunk);
+            }
         }
+    }
+
+    private static List<ImageDataPayload> chunkImage(String screenName, byte[] imageData) {
+        int total = imageData.length;
+        int chunkCount = Math.max(1, (total + ImageDataPayload.CHUNK_SIZE - 1) / ImageDataPayload.CHUNK_SIZE);
+        List<ImageDataPayload> chunks = new ArrayList<>(chunkCount);
+        for (int index = 0; index < chunkCount; index++) {
+            int start = index * ImageDataPayload.CHUNK_SIZE;
+            int end = Math.min(start + ImageDataPayload.CHUNK_SIZE, total);
+            byte[] slice = Arrays.copyOfRange(imageData, start, end);
+            chunks.add(new ImageDataPayload(screenName, total, index, chunkCount, slice));
+        }
+        return chunks;
     }
 
     public static void broadcastScreenChange(MinecraftServer server, String screenName) {
