@@ -61,6 +61,18 @@ public class WaitingscreenClient implements ClientModInitializer {
 
     private static boolean wasInWaiting = false;
     private static final Map<String, Identifier> loadedTextures = new ConcurrentHashMap<>();
+    private static final Map<String, ImageAssembly> pendingImages = new ConcurrentHashMap<>();
+
+    private static final class ImageAssembly {
+        final byte[] buffer;
+        final int chunkCount;
+        int received;
+
+        ImageAssembly(int totalLength, int chunkCount) {
+            this.buffer = new byte[totalLength];
+            this.chunkCount = chunkCount;
+        }
+    }
 
     private static final Set<Class<? extends Screen>> ALLOWED_SCREENS = Set.of(
             GameMenuScreen.class,
@@ -102,7 +114,7 @@ public class WaitingscreenClient implements ClientModInitializer {
         );
 
         ClientPlayNetworking.registerGlobalReceiver(ImageDataPayload.ID, (payload, context) ->
-                context.client().execute(() -> receiveImageData(payload.screenName(), payload.imageData()))
+                context.client().execute(() -> receiveImageChunk(payload))
         );
 
         ClientPlayNetworking.registerGlobalReceiver(ScreenChangePayload.ID, (payload, context) ->
@@ -149,6 +161,7 @@ public class WaitingscreenClient implements ClientModInitializer {
 
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             cleanupTextures();
+            pendingImages.clear();
             wasInWaiting = false;
             waitingActive = false;
             exempt = false;
@@ -195,6 +208,29 @@ public class WaitingscreenClient implements ClientModInitializer {
 
         String screenName = screen.getClass().getName();
         return screenName.contains("OptionsScreen") || screenName.contains("OptionsSubScreen");
+    }
+
+    @Environment(EnvType.CLIENT)
+    private void receiveImageChunk(ImageDataPayload payload) {
+        String screenName = payload.screenName();
+        ImageAssembly assembly = pendingImages.computeIfAbsent(screenName,
+                k -> new ImageAssembly(payload.totalLength(), payload.chunkCount()));
+
+        byte[] chunk = payload.data();
+        int offset = payload.chunkIndex() * ImageDataPayload.CHUNK_SIZE;
+        if (offset < 0 || offset + chunk.length > assembly.buffer.length) {
+            pendingImages.remove(screenName);
+            log.error("Invalid image chunk for {}: out of bounds", screenName);
+            return;
+        }
+
+        System.arraycopy(chunk, 0, assembly.buffer, offset, chunk.length);
+        assembly.received++;
+
+        if (assembly.received >= assembly.chunkCount) {
+            pendingImages.remove(screenName);
+            receiveImageData(screenName, assembly.buffer);
+        }
     }
 
     @Environment(EnvType.CLIENT)
