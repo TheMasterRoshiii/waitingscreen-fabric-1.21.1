@@ -1,6 +1,6 @@
 package com.me.master.waitingscreen.mixin.client;
 
-import com.me.master.waitingscreen.client.WaitingscreenClient;
+import com.me.master.waitingscreen.client.network.ClientPacketHandlers;
 import net.minecraft.client.Mouse;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -12,7 +12,7 @@ public class MouseMixin {
 
     @Inject(method = "updateMouse", at = @At("HEAD"), cancellable = true)
     private void blockCameraMovement(CallbackInfo ci) {
-        if (WaitingscreenClient.shouldBlockInput()) {
+        if (ClientPacketHandlers.shouldBlockInput()) {
             ci.cancel();
         }
     }

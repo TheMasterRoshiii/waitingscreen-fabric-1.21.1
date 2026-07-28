@@ -1,6 +1,7 @@
 package com.me.master.waitingscreen.mixin;
 
 import com.me.master.waitingscreen.Waitingscreen;
+import io.netty.channel.ChannelHandlerContext;
 import lombok.extern.slf4j.Slf4j;
 import net.minecraft.network.ClientConnection;
 import org.spongepowered.asm.mixin.Mixin;
@@ -13,7 +14,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class ExceptionHandlerMixin {
 
     @Inject(method = "exceptionCaught", at = @At("HEAD"))
-    private void handleException(io.netty.channel.ChannelHandlerContext context, Throwable throwable, CallbackInfo ci) {
+    private void handleException(ChannelHandlerContext context, Throwable throwable, CallbackInfo ci) {
         Waitingscreen mod = Waitingscreen.getInstance();
         if (mod != null && mod.isWaitingActive()) {
             log.error("Network exception during waiting screen", throwable);

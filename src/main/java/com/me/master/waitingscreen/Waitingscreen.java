@@ -2,17 +2,12 @@ package com.me.master.waitingscreen;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
-import com.me.master.waitingscreen.command.WaitingScreenCommands;
 import com.me.master.waitingscreen.network.NetworkHandler;
+import com.me.master.waitingscreen.server.ServerEventHandlers;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
-import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 
@@ -52,13 +47,10 @@ public class Waitingscreen implements ModInitializer {
 
     @Getter private int waitingTextX = 0;
     @Getter private int waitingTextY = 100;
-
     @Getter private int playerCountX = 0;
     @Getter private int playerCountY = 20;
-
     @Getter private int missingTextX = 0;
     @Getter private int missingTextY = 120;
-
     @Getter private int escTextX = 0;
     @Getter private int escTextY = -30;
 
@@ -68,7 +60,7 @@ public class Waitingscreen implements ModInitializer {
     private final Set<UUID> exemptPlayers = ConcurrentHashMap.newKeySet();
     private final Map<String, byte[]> serverImageCache = new ConcurrentHashMap<>();
 
-    private volatile MinecraftServer currentServer = null;
+    @Setter private volatile MinecraftServer currentServer = null;
     private int tickCounter = 0;
     private static final int UPDATE_INTERVAL = 20;
 
@@ -81,33 +73,11 @@ public class Waitingscreen implements ModInitializer {
     @Override
     public void onInitialize() {
         instance = this;
-
         NetworkHandler.registerPackets();
-
-        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) ->
-                WaitingScreenCommands.register(dispatcher));
-
-        ServerLifecycleEvents.SERVER_STARTING.register(this::onServerStarting);
-        ServerLifecycleEvents.SERVER_STOPPED.register(this::onServerStopped);
-
-        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) ->
-                onPlayerJoin(handler.player));
-
-        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) ->
-                onPlayerLeave());
-
-        ServerTickEvents.END_SERVER_TICK.register(this::onServerTick);
-
-        ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> onPlayerRespawn(newPlayer));
+        ServerEventHandlers.register();
     }
 
-    private void onServerStarting(MinecraftServer server) {
-        this.currentServer = server;
-        loadServerImages();
-    }
-
-    private void onServerStopped(MinecraftServer server) {
-        this.currentServer = null;
+    public void onServerStopped() {
         this.waitingActive = false;
         this.currentPlayers = 0;
         this.serverImageCache.clear();
@@ -115,13 +85,12 @@ public class Waitingscreen implements ModInitializer {
         this.lastMissingMore = 0;
     }
 
-    private void onPlayerJoin(ServerPlayerEntity player) {
+    public void onPlayerJoin(ServerPlayerEntity player) {
         sendAllImagesToPlayer(player);
 
         if (waitingActive) {
             sendWaitingStateToPlayer(player);
             NetworkHandler.sendMissingNames(player, lastShownMissing, lastMissingMore);
-
             NetworkHandler.sendUiConfig(
                     player,
                     waitingText, waitingTextColor, waitingTextScale,
@@ -129,17 +98,15 @@ public class Waitingscreen implements ModInitializer {
                     missingTextX, missingTextY, escTextX, escTextY,
                     playerCurrentColor, playerRequiredColor
             );
-
             updatePlayerCount();
         }
     }
 
-    private void onPlayerRespawn(ServerPlayerEntity player) {
+    public void onPlayerRespawn(ServerPlayerEntity player) {
         if (!waitingActive) return;
 
         sendWaitingStateToPlayer(player);
         NetworkHandler.sendMissingNames(player, lastShownMissing, lastMissingMore);
-
         NetworkHandler.sendUiConfig(
                 player,
                 waitingText, waitingTextColor, waitingTextScale,
@@ -149,11 +116,11 @@ public class Waitingscreen implements ModInitializer {
         );
     }
 
-    private void onPlayerLeave() {
+    public void onPlayerLeave() {
         if (waitingActive) updatePlayerCount();
     }
 
-    private void onServerTick(MinecraftServer server) {
+    public void onServerTick(MinecraftServer server) {
         if (!waitingActive) return;
 
         tickCounter++;
@@ -163,7 +130,7 @@ public class Waitingscreen implements ModInitializer {
         }
     }
 
-    private void loadServerImages() {
+    public void loadServerImages() {
         File dir = new File("config/waitingscreens/");
         if (!dir.exists() && !dir.mkdirs()) return;
 
@@ -508,7 +475,6 @@ public class Waitingscreen implements ModInitializer {
         );
     }
 
-    /** FIX: delega a NetworkHandler.broadcastWaitingState(...) seguro (exempt per-player). */
     private void broadcastWaitingState() {
         MinecraftServer server = getServerOrWarn("broadcast waiting state");
         if (server == null) return;
