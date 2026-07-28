@@ -1,6 +1,6 @@
 package com.me.master.waitingscreen.client.screen;
 
-import com.me.master.waitingscreen.client.WaitingscreenClient;
+import com.me.master.waitingscreen.client.network.ClientPacketHandlers;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -27,12 +27,12 @@ public class WaitingScreen extends Screen {
         context.getMatrices().push();
         context.getMatrices().scale(3, 3, 1);
 
-        int centerX = (width / 2 + WaitingscreenClient.getPlayerCountX()) / 3;
-        int y = (height / 2 + WaitingscreenClient.getPlayerCountY()) / 3;
+        int centerX = (width / 2 + ClientPacketHandlers.getPlayerCountX()) / 3;
+        int y = (height / 2 + ClientPacketHandlers.getPlayerCountY()) / 3;
 
-        String a = String.valueOf(WaitingscreenClient.getCurrentPlayers());
+        String a = String.valueOf(ClientPacketHandlers.getCurrentPlayers());
         String b = "/";
-        String c = String.valueOf(WaitingscreenClient.getRequiredPlayers());
+        String c = String.valueOf(ClientPacketHandlers.getRequiredPlayers());
 
         int wa = textRenderer.getWidth(a);
         int wb = textRenderer.getWidth(b);
@@ -40,37 +40,37 @@ public class WaitingScreen extends Screen {
 
         int left = centerX - (wa + wb + wc) / 2;
 
-        context.drawTextWithShadow(textRenderer, a, left, y, WaitingscreenClient.getPlayerCurrentColor());
+        context.drawTextWithShadow(textRenderer, a, left, y, ClientPacketHandlers.getPlayerCurrentColor());
         context.drawTextWithShadow(textRenderer, b, left + wa, y, 0xFFFFFFFF);
-        context.drawTextWithShadow(textRenderer, c, left + wa + wb, y, WaitingscreenClient.getPlayerRequiredColor());
+        context.drawTextWithShadow(textRenderer, c, left + wa + wb, y, ClientPacketHandlers.getPlayerRequiredColor());
 
         context.getMatrices().pop();
 
-        float s = WaitingscreenClient.getWaitingTextScale();
+        float s = ClientPacketHandlers.getWaitingTextScale();
         if (s <= 0) s = 1.0f;
 
         context.getMatrices().push();
         context.getMatrices().scale(s, s, 1);
 
-        int wtX = (int) ((width / 2f + WaitingscreenClient.getWaitingTextX()) / s);
-        int wtY = (int) ((height / 2f + WaitingscreenClient.getWaitingTextY()) / s);
+        int wtX = (int) ((width / 2f + ClientPacketHandlers.getWaitingTextX()) / s);
+        int wtY = (int) ((height / 2f + ClientPacketHandlers.getWaitingTextY()) / s);
 
         context.drawCenteredTextWithShadow(textRenderer,
-                Text.literal(WaitingscreenClient.getWaitingText()),
-                wtX, wtY, WaitingscreenClient.getWaitingTextColor());
+                Text.literal(ClientPacketHandlers.getWaitingText()),
+                wtX, wtY, ClientPacketHandlers.getWaitingTextColor());
 
         context.getMatrices().pop();
 
         Text missingText = buildMissingText();
         if (missingText != null) {
-            int mtX = width / 2 + WaitingscreenClient.getMissingTextX();
-            int mtY = height / 2 + WaitingscreenClient.getMissingTextY();
+            int mtX = width / 2 + ClientPacketHandlers.getMissingTextX();
+            int mtY = height / 2 + ClientPacketHandlers.getMissingTextY();
             context.drawCenteredTextWithShadow(textRenderer, missingText, mtX, mtY, 0xFFFFFFFF);
         }
 
-        if (WaitingscreenClient.isAllowEscMenu()) {
-            int etX = width / 2 + WaitingscreenClient.getEscTextX();
-            int etY = WaitingscreenClient.getEscTextY() < 0 ? height + WaitingscreenClient.getEscTextY() : WaitingscreenClient.getEscTextY();
+        if (ClientPacketHandlers.isAllowEscMenu()) {
+            int etX = width / 2 + ClientPacketHandlers.getEscTextX();
+            int etY = ClientPacketHandlers.getEscTextY() < 0 ? height + ClientPacketHandlers.getEscTextY() : ClientPacketHandlers.getEscTextY();
             context.drawCenteredTextWithShadow(textRenderer,
                     Text.translatable("waitingscreen.press_esc"),
                     etX, etY, 0xFFAAAAAA);
@@ -78,8 +78,8 @@ public class WaitingScreen extends Screen {
     }
 
     private Text buildMissingText() {
-        List<String> names = WaitingscreenClient.getMissingNames();
-        int more = WaitingscreenClient.getMissingMore();
+        List<String> names = ClientPacketHandlers.getMissingNames();
+        int more = ClientPacketHandlers.getMissingMore();
 
         if ((names == null || names.isEmpty()) && more <= 0) return null;
 
@@ -98,11 +98,11 @@ public class WaitingScreen extends Screen {
     }
 
     private void renderImage(DrawContext context) {
-        Identifier tex = WaitingscreenClient.getTexture(WaitingscreenClient.getCurrentScreen());
+        Identifier tex = ClientPacketHandlers.getTexture(ClientPacketHandlers.getCurrentScreen());
         if (tex == null) {
             context.fill(0, 0, width, height, 0xFF000000);
             context.drawCenteredTextWithShadow(textRenderer,
-                    Text.translatable("waitingscreen.loading", WaitingscreenClient.getCurrentScreen()),
+                    Text.translatable("waitingscreen.loading", ClientPacketHandlers.getCurrentScreen()),
                     width / 2, height / 2, 0xFFFFFFFF);
             return;
         }
@@ -111,7 +111,7 @@ public class WaitingScreen extends Screen {
         if (mc.getTextureManager().getTexture(tex) == null) {
             context.fill(0, 0, width, height, 0xFF000000);
             context.drawCenteredTextWithShadow(textRenderer,
-                    Text.translatable("waitingscreen.loading", WaitingscreenClient.getCurrentScreen()),
+                    Text.translatable("waitingscreen.loading", ClientPacketHandlers.getCurrentScreen()),
                     width / 2, height / 2, 0xFFFFFFFF);
             return;
         }
@@ -123,7 +123,7 @@ public class WaitingScreen extends Screen {
 
     @Override
     public boolean shouldCloseOnEsc() {
-        return WaitingscreenClient.isAllowEscMenu();
+        return ClientPacketHandlers.isAllowEscMenu();
     }
 
     @Override
@@ -133,15 +133,15 @@ public class WaitingScreen extends Screen {
 
     @Override
     public void close() {
-        if (WaitingscreenClient.isAllowEscMenu()) {
-            MinecraftClient.getInstance().setScreen(new GameMenuScreen(true));
+        if (ClientPacketHandlers.isAllowEscMenu()) {
+            MinecraftClient.getInstance().setScreen(new WaitingGameMenuScreen());
         }
     }
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == 256 && WaitingscreenClient.isAllowEscMenu()) {
-            MinecraftClient.getInstance().setScreen(new GameMenuScreen(true));
+        if (keyCode == 256 && ClientPacketHandlers.isAllowEscMenu()) {
+            MinecraftClient.getInstance().setScreen(new WaitingGameMenuScreen());
             return true;
         }
         return super.keyPressed(keyCode, scanCode, modifiers);

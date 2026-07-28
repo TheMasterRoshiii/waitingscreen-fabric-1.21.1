@@ -22,7 +22,8 @@
     "client.KeyboardMixin",
     "client.MinecraftClientMixin",
     "client.MouseMixin",
-    "client.DisableTelemetryMixin"
+    "client.DisableTelemetryMixin",
+    "client.ScreenBackgroundMixin"
   ],
   "injectors": {
     "defaultRequire": 1
