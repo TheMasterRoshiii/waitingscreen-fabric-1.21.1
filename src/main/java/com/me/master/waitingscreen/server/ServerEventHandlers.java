@@ -17,6 +17,7 @@ public class ServerEventHandlers {
         ServerLifecycleEvents.SERVER_STARTING.register(server -> {
             Waitingscreen mod = Waitingscreen.getInstance();
             mod.setCurrentServer(server);
+            mod.loadConfig();
             mod.loadServerImages();
         });
 

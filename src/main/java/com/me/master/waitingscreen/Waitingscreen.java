@@ -2,6 +2,7 @@ package com.me.master.waitingscreen;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
+import com.me.master.waitingscreen.config.WaitingScreenConfig;
 import com.me.master.waitingscreen.network.NetworkHandler;
 import com.me.master.waitingscreen.server.ServerEventHandlers;
 import lombok.Getter;
@@ -30,12 +31,13 @@ public class Waitingscreen implements ModInitializer {
     @Getter private int requiredPlayers = 4;
     @Getter private int currentPlayers = 0;
     @Getter private String currentScreen = "default";
+    @Getter private boolean keepScreenOnFull = false;
     @Getter private boolean allowEscMenu = true;
 
-    @Setter @Getter private boolean blockChat = false;
-    @Setter @Getter private boolean protectPlayers = true;
-    @Setter @Getter private boolean blockInteractions = true;
-    @Setter @Getter private boolean freezeHunger = true;
+    @Getter private boolean blockChat = false;
+    @Getter private boolean protectPlayers = true;
+    @Getter private boolean blockInteractions = true;
+    @Getter private boolean freezeHunger = true;
 
     @Getter private boolean whitelistMode = true;
     @Getter private int showNamesWhenMissingAtMost = 5;
@@ -83,6 +85,80 @@ public class Waitingscreen implements ModInitializer {
         this.serverImageCache.clear();
         this.lastShownMissing = List.of();
         this.lastMissingMore = 0;
+    }
+
+    public void loadConfig() {
+        applyConfig(WaitingScreenConfig.load());
+        saveConfig();
+    }
+
+    public void reloadConfig() {
+        loadConfig();
+        if (waitingActive) {
+            updatePlayerCount();
+            broadcastWaitingState();
+            broadcastUiConfig();
+        }
+    }
+
+    private void applyConfig(WaitingScreenConfig.Settings settings) {
+        this.requiredPlayers = settings.requiredPlayers();
+        this.currentScreen = settings.currentScreen();
+        this.keepScreenOnFull = settings.keepScreenOnFull();
+        this.allowEscMenu = settings.allowEscMenu();
+        this.blockChat = settings.blockChat();
+        this.protectPlayers = settings.protectPlayers();
+        this.blockInteractions = settings.blockInteractions();
+        this.freezeHunger = settings.freezeHunger();
+        this.whitelistMode = settings.whitelistMode();
+        this.showNamesWhenMissingAtMost = settings.showNamesWhenMissingAtMost();
+        this.maxNamesToShow = settings.maxNamesToShow();
+        this.waitingText = settings.waitingText();
+        this.waitingTextColor = settings.waitingTextColor();
+        this.waitingTextScale = settings.waitingTextScale();
+        this.waitingTextX = settings.waitingTextX();
+        this.waitingTextY = settings.waitingTextY();
+        this.playerCountX = settings.playerCountX();
+        this.playerCountY = settings.playerCountY();
+        this.missingTextX = settings.missingTextX();
+        this.missingTextY = settings.missingTextY();
+        this.escTextX = settings.escTextX();
+        this.escTextY = settings.escTextY();
+        this.playerCurrentColor = settings.playerCurrentColor();
+        this.playerRequiredColor = settings.playerRequiredColor();
+
+        this.exemptPlayers.clear();
+        this.exemptPlayers.addAll(settings.exemptPlayers());
+    }
+
+    private void saveConfig() {
+        WaitingScreenConfig.save(new WaitingScreenConfig.Settings(
+                requiredPlayers,
+                currentScreen,
+                keepScreenOnFull,
+                allowEscMenu,
+                blockChat,
+                protectPlayers,
+                blockInteractions,
+                freezeHunger,
+                whitelistMode,
+                showNamesWhenMissingAtMost,
+                maxNamesToShow,
+                waitingText,
+                waitingTextColor,
+                waitingTextScale,
+                waitingTextX,
+                waitingTextY,
+                playerCountX,
+                playerCountY,
+                missingTextX,
+                missingTextY,
+                escTextX,
+                escTextY,
+                playerCurrentColor,
+                playerRequiredColor,
+                Set.copyOf(exemptPlayers)
+        ));
     }
 
     public void onPlayerJoin(ServerPlayerEntity player) {
@@ -207,6 +283,8 @@ public class Waitingscreen implements ModInitializer {
             requiredPlayers = required > 0 ? required : 4;
         }
 
+        saveConfig();
+
         waitingActive = true;
         currentPlayers = 0;
 
@@ -232,6 +310,7 @@ public class Waitingscreen implements ModInitializer {
     public boolean changeScreen(String name) {
         if (!serverImageCache.containsKey(name)) return false;
         currentScreen = name;
+        saveConfig();
         broadcastScreenChange();
         return true;
     }
@@ -246,7 +325,8 @@ public class Waitingscreen implements ModInitializer {
     }
 
     public void setRequiredPlayers(int count) {
-        this.requiredPlayers = count;
+        this.requiredPlayers = Math.max(0, count);
+        saveConfig();
         if (waitingActive) {
             broadcastWaitingState();
             if (count > 0) updatePlayerCount();
@@ -255,71 +335,110 @@ public class Waitingscreen implements ModInitializer {
 
     public void setAllowEscMenu(boolean allow) {
         this.allowEscMenu = allow;
+        saveConfig();
         broadcastWaitingState();
+    }
+
+    public void setKeepScreenOnFull(boolean keep) {
+        this.keepScreenOnFull = keep;
+        saveConfig();
+        if (waitingActive) updatePlayerCount();
+    }
+
+    public void setBlockChat(boolean block) {
+        this.blockChat = block;
+        saveConfig();
+    }
+
+    public void setProtectPlayers(boolean protect) {
+        this.protectPlayers = protect;
+        saveConfig();
+    }
+
+    public void setBlockInteractions(boolean block) {
+        this.blockInteractions = block;
+        saveConfig();
+    }
+
+    public void setFreezeHunger(boolean freeze) {
+        this.freezeHunger = freeze;
+        saveConfig();
     }
 
     public void setWhitelistMode(boolean whitelistMode) {
         this.whitelistMode = whitelistMode;
+        saveConfig();
         if (waitingActive) updatePlayerCount();
     }
 
     public void setShowNamesWhenMissingAtMost(int v) {
         this.showNamesWhenMissingAtMost = Math.max(0, v);
+        saveConfig();
         if (waitingActive) updatePlayerCount();
     }
 
     public void setMaxNamesToShow(int v) {
         this.maxNamesToShow = Math.max(0, v);
+        saveConfig();
         if (waitingActive) updatePlayerCount();
     }
 
     public void setWaitingText(String text) {
-        this.waitingText = text;
+        this.waitingText = text == null || text.isBlank() ? "Esperando jugadores..." : text;
+        saveConfig();
         broadcastUiConfig();
     }
 
     public void setWaitingTextColor(int color) {
         this.waitingTextColor = color;
+        saveConfig();
         broadcastUiConfig();
     }
 
     public void setWaitingTextScale(float scale) {
-        this.waitingTextScale = scale;
+        this.waitingTextScale = Float.isFinite(scale) && scale > 0.0f ? scale : 1.0f;
+        saveConfig();
         broadcastUiConfig();
     }
 
     public void setWaitingTextPosition(int x, int y) {
         this.waitingTextX = x;
         this.waitingTextY = y;
+        saveConfig();
         broadcastUiConfig();
     }
 
     public void setPlayerCountPosition(int x, int y) {
         this.playerCountX = x;
         this.playerCountY = y;
+        saveConfig();
         broadcastUiConfig();
     }
 
     public void setMissingTextPosition(int x, int y) {
         this.missingTextX = x;
         this.missingTextY = y;
+        saveConfig();
         broadcastUiConfig();
     }
 
     public void setEscTextPosition(int x, int y) {
         this.escTextX = x;
         this.escTextY = y;
+        saveConfig();
         broadcastUiConfig();
     }
 
     public void setPlayerCountColors(int currentColor, int requiredColor) {
         this.playerCurrentColor = currentColor;
         this.playerRequiredColor = requiredColor;
+        saveConfig();
         broadcastUiConfig();
     }
 
     public void addExemptPlayer(UUID id) {
         exemptPlayers.add(id);
+        saveConfig();
         if (waitingActive) {
             updatePlayerCount();
             broadcastWaitingState();
@@ -328,6 +447,7 @@ public class Waitingscreen implements ModInitializer {
 
     public void removeExemptPlayer(UUID id) {
         exemptPlayers.remove(id);
+        saveConfig();
         if (waitingActive) {
             updatePlayerCount();
             broadcastWaitingState();
@@ -340,6 +460,7 @@ public class Waitingscreen implements ModInitializer {
 
     public void clearExemptPlayers() {
         exemptPlayers.clear();
+        saveConfig();
         if (waitingActive) {
             updatePlayerCount();
             broadcastWaitingState();
@@ -394,9 +515,11 @@ public class Waitingscreen implements ModInitializer {
 
             Set<String> whitelist = cachedWhitelistNames;
             int expected = whitelist.size();
+            boolean requiredChanged = false;
 
             if (expected > 0 && expected != requiredPlayers) {
                 requiredPlayers = expected;
+                requiredChanged = true;
             }
 
             int count = 0;
@@ -435,14 +558,12 @@ public class Waitingscreen implements ModInitializer {
                 NetworkHandler.broadcastMissingNames(server, shown, more);
             }
 
-            if (count != currentPlayers) {
+            if (count != currentPlayers || requiredChanged) {
                 currentPlayers = count;
                 broadcastWaitingState();
             }
 
-            if (requiredPlayers > 0 && currentPlayers >= requiredPlayers) {
-                stopWaiting();
-            }
+            stopWaitingIfFull();
 
             return;
         }
@@ -457,7 +578,11 @@ public class Waitingscreen implements ModInitializer {
             broadcastWaitingState();
         }
 
-        if (requiredPlayers > 0 && currentPlayers >= requiredPlayers) {
+        stopWaitingIfFull();
+    }
+
+    private void stopWaitingIfFull() {
+        if (!keepScreenOnFull && requiredPlayers > 0 && currentPlayers >= requiredPlayers) {
             stopWaiting();
         }
     }

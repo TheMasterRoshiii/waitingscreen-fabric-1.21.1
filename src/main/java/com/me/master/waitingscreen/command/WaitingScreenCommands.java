@@ -22,8 +22,10 @@ public class WaitingScreenCommands {
 
                 .then(CommandManager.literal("start")
                         .executes(c -> {
-                            Waitingscreen.getInstance().startWaiting(4);
-                            c.getSource().sendFeedback(() -> Text.literal("§aWaiting started (4 players required)"), true);
+                            Waitingscreen mod = Waitingscreen.getInstance();
+                            mod.startWaiting(mod.getRequiredPlayers());
+                            c.getSource().sendFeedback(() -> Text.literal(
+                                    "§aWaiting started (" + mod.getRequiredPlayers() + " players required)"), true);
                             return 1;
                         })
                         .then(CommandManager.argument("players", IntegerArgumentType.integer(0, 999))
@@ -55,6 +57,17 @@ public class WaitingScreenCommands {
                                     } else {
                                         c.getSource().sendFeedback(() -> Text.literal("§aPlayer count set to: " + count), true);
                                     }
+                                    return 1;
+                                })))
+
+                .then(CommandManager.literal("keepfull")
+                        .then(CommandManager.argument("enabled", BoolArgumentType.bool())
+                                .executes(c -> {
+                                    boolean enabled = BoolArgumentType.getBool(c, "enabled");
+                                    Waitingscreen.getInstance().setKeepScreenOnFull(enabled);
+                                    c.getSource().sendFeedback(() -> Text.literal(
+                                            "§aKeep waiting screen at max players "
+                                                    + (enabled ? "enabled" : "disabled")), true);
                                     return 1;
                                 })))
 
@@ -200,6 +213,16 @@ public class WaitingScreenCommands {
                                     return 1;
                                 })))
 
+                .then(CommandManager.literal("freezehunger")
+                        .then(CommandManager.argument("enabled", BoolArgumentType.bool())
+                                .executes(c -> {
+                                    boolean enabled = BoolArgumentType.getBool(c, "enabled");
+                                    Waitingscreen.getInstance().setFreezeHunger(enabled);
+                                    c.getSource().sendFeedback(() -> Text.literal(
+                                            "§aHunger freezing " + (enabled ? "enabled" : "disabled")), true);
+                                    return 1;
+                                })))
+
                 .then(CommandManager.literal("setscreen")
                         .then(CommandManager.argument("screen", StringArgumentType.string())
                                 .suggests((c, b) -> net.minecraft.command.CommandSource.suggestMatching(
@@ -225,8 +248,9 @@ public class WaitingScreenCommands {
 
                 .then(CommandManager.literal("reload")
                         .executes(c -> {
+                            Waitingscreen.getInstance().reloadConfig();
                             Waitingscreen.getInstance().reloadScreens();
-                            c.getSource().sendFeedback(() -> Text.literal("§aReloaded screens"), true);
+                            c.getSource().sendFeedback(() -> Text.literal("§aReloaded config and screens"), true);
                             return 1;
                         }))
 
@@ -281,10 +305,12 @@ public class WaitingScreenCommands {
                             c.getSource().sendFeedback(() -> Text.literal("§eUI Pos missing: x=" + mod.getMissingTextX() + " y=" + mod.getMissingTextY()), false);
                             c.getSource().sendFeedback(() -> Text.literal("§eUI Pos esc: x=" + mod.getEscTextX() + " y=" + mod.getEscTextY()), false);
                             c.getSource().sendFeedback(() -> Text.literal("§eCurrent Screen: " + mod.getCurrentScreen()), false);
+                            c.getSource().sendFeedback(() -> Text.literal("§eKeep Screen On Full: " + mod.isKeepScreenOnFull()), false);
                             c.getSource().sendFeedback(() -> Text.literal("§eESC Menu Allowed: " + mod.isAllowEscMenu()), false);
                             c.getSource().sendFeedback(() -> Text.literal("§eChat Blocked: " + mod.isBlockChat()), false);
                             c.getSource().sendFeedback(() -> Text.literal("§ePlayer Protection: " + mod.isProtectPlayers()), false);
                             c.getSource().sendFeedback(() -> Text.literal("§eInteractions Blocked: " + mod.isBlockInteractions()), false);
+                            c.getSource().sendFeedback(() -> Text.literal("§eHunger Frozen: " + mod.isFreezeHunger()), false);
                             return 1;
                         }))
         );
